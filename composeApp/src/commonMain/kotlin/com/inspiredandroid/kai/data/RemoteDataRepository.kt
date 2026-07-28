@@ -716,6 +716,11 @@ class RemoteDataRepository(
         // materialized here.
         val resolvedSkillId = activeSkillId?.takeIf { skillManager.getSkill(it) != null }
         pendingActiveSkillId = resolvedSkillId
+        // Install any packages the skill declares (once per session) before its
+        // instructions reach the model, so the tools it assumes are already present.
+        if (resolvedSkillId != null) {
+            skillManager.ensureDependencies(resolvedSkillId)
+        }
         try {
             askInternal(question, files, uiSubmission)
         } finally {
@@ -1523,6 +1528,26 @@ class RemoteDataRepository(
         // this id (very unlikely — random uuids) doesn't inherit stale state, and
         // memory is freed.
         sandboxController.closeSession(id)
+    }
+
+    override suspend fun branchConversation(fromMessageId: String): String? {
+        val currentId = _currentConversationId.value ?: return null
+        val source = savedConversations.value.find { it.id == currentId } ?: return null
+        val idx = source.messages.indexOfFirst { it.id == fromMessageId }
+        if (idx < 0) return null
+        val now = Clock.System.now().toEpochMilliseconds()
+        val newId = Uuid.random().toString()
+        val branched = source.copy(
+            id = newId,
+            messages = source.messages.take(idx + 1),
+            title = source.title.ifBlank { "Chat" } + " (branch)",
+            createdAt = now,
+            updatedAt = now,
+            // A branch starts with a clean shell transcript; the fork copies chat history only.
+            shellTranscript = emptyList(),
+        )
+        conversationStorage.saveConversation(branched)
+        return newId
     }
 
     override fun regenerate() {

@@ -61,6 +61,7 @@ class ChatViewModel(
         removeFile = ::removeFile,
         startNewChat = ::startNewChat,
         regenerate = ::regenerate,
+        branchFromMessage = ::branchFromMessage,
         cancel = ::cancel,
         selectService = ::selectService,
         loadConversation = ::loadConversation,
@@ -427,6 +428,13 @@ class ChatViewModel(
     private fun regenerate() {
         dataRepository.regenerate()
         ask(null)
+    }
+
+    private fun branchFromMessage(messageId: String) {
+        viewModelScope.launch(backgroundDispatcher) {
+            val newId = dataRepository.branchConversation(messageId) ?: return@launch
+            loadConversation(newId)
+        }
     }
 
     private fun loadConversation(id: String) {

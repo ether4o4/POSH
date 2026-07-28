@@ -57,6 +57,7 @@ import kai.composeapp.generated.resources.bot_message_thinking_label
 import kai.composeapp.generated.resources.ic_copy
 import kai.composeapp.generated.resources.ic_flag
 import kai.composeapp.generated.resources.ic_refresh
+import kai.composeapp.generated.resources.ic_add
 import kai.composeapp.generated.resources.ic_stop
 import kai.composeapp.generated.resources.ic_volume_up
 import kotlinx.collections.immutable.ImmutableList
@@ -74,6 +75,7 @@ internal fun BotMessage(
     isSpeaking: Boolean,
     setIsSpeaking: (Boolean) -> Unit,
     onRegenerate: (() -> Unit)? = null,
+    onBranch: (() -> Unit)? = null,
     isInteractive: Boolean = false,
     onUiCallback: ((event: String, data: Map<String, String>) -> Unit)? = null,
     frozen: FrozenSubmission? = null,
@@ -192,6 +194,13 @@ internal fun BotMessage(
                 iconResource = Res.drawable.ic_refresh,
                 contentDescription = stringResource(Res.string.bot_message_regenerate_content_description),
                 onClick = onRegenerate,
+            )
+        }
+        if (onBranch != null) {
+            SmallIconButton(
+                iconResource = Res.drawable.ic_add,
+                contentDescription = "Branch from here",
+                onClick = onBranch,
             )
         }
         Spacer(Modifier.weight(1f))

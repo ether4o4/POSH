@@ -36,24 +36,41 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-val darkPurple = Color(0xFF6200EE)
-val lightPurple = Color(0xff8063C5)
+// POSH brand accent is red (the theme is red / white / black). These names are kept
+// for source compatibility with the rest of the UI; only their values changed.
+val darkPurple = Color(0xFFD32F2F)
+val lightPurple = Color(0xFFFF5252)
 val gradientBrush = androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(darkPurple, lightPurple))
 
-// Animated border gradient colors
-val gradientPurple = Color(0xFF9C27B0)
-val gradientViolet = Color(0xFF7C4DFF)
-val gradientMagenta = Color(0xFFE040FB)
+// Animated border gradient colors — red tones.
+val gradientPurple = Color(0xFFE53935)
+val gradientViolet = Color(0xFFFF1744)
+val gradientMagenta = Color(0xFFFF5252)
 
 fun Modifier.handCursor() = pointerHoverIcon(PointerIcon.Hand, overrideDescendants = true)
 
+// POSH dark theme: red accent on a near-black surface with white content. Background is
+// 0xFF0A0A0A (not pure black) so it stays distinct from the OledBlack mode, which forces
+// pure black via withBlackBackground() and drives the isOledFlavor card styling.
 val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFBB86FC),
-    onPrimary = Color(0xFF000000),
-    surface = Color(0xFF1E1E1E),
-    background = Color(0xFF121212),
+    primary = Color(0xFFFF3B30),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFF7F0000),
+    onPrimaryContainer = Color(0xFFFFFFFF),
+    secondary = Color(0xFFFF6E6E),
+    onSecondary = Color(0xFF000000),
+    secondaryContainer = Color(0xFF3A0A0A),
+    onSecondaryContainer = Color(0xFFFFDAD6),
+    tertiary = Color(0xFFFFFFFF),
+    onTertiary = Color(0xFF000000),
+    surface = Color(0xFF161616),
+    surfaceVariant = Color(0xFF2A2A2A),
+    onSurfaceVariant = Color(0xFFCCCCCC),
+    background = Color(0xFF0A0A0A),
     onBackground = Color(0xFFFFFFFF),
     onSurface = Color(0xFFFFFFFF),
+    outline = Color(0xFF555555),
+    outlineVariant = Color(0xFF333333),
 )
 
 fun ColorScheme.withBlackBackground(): ColorScheme = copy(
@@ -98,13 +115,23 @@ fun Modifier.kaiAdaptiveCardSurface(shape: Shape = CardDefaults.shape): Modifier
         },
     )
 
+// POSH light theme: red accent on white with black content.
 val LightColorScheme = lightColorScheme(
     primary = darkPurple,
     onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFFFDAD6),
+    onPrimaryContainer = Color(0xFF410002),
+    secondary = Color(0xFFB71C1C),
+    onSecondary = Color(0xFFFFFFFF),
+    tertiary = Color(0xFF000000),
+    onTertiary = Color(0xFFFFFFFF),
     surface = Color(0xFFF2F2F2),
+    surfaceVariant = Color(0xFFE7E7E7),
+    onSurfaceVariant = Color(0xFF444444),
     background = Color(0xFFFFFFFF),
     onBackground = Color(0xFF000000),
     onSurface = Color(0xFF000000),
+    outline = Color(0xFFBBBBBB),
 )
 
 @Composable

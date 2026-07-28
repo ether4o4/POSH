@@ -14,6 +14,8 @@ data class ChatActions(
     val removeFile: (PlatformFile) -> Unit,
     val startNewChat: () -> Unit,
     val regenerate: () -> Unit,
+    /** Fork the current conversation up to and including the given message id into a new branch. */
+    val branchFromMessage: (String) -> Unit,
     val cancel: () -> Unit,
     val selectService: (String) -> Unit,
     val loadConversation: (String) -> Unit,
