@@ -17,6 +17,10 @@ private const val TOOL_DESCRIPTION = """Execute a shell command in an Alpine Lin
 
 Shell session is PERSISTENT across calls within THIS conversation: cwd, exported environment variables, and any in-shell state carry from one call to the next, just like a normal terminal. So "cd /tmp" in one call, then "pwd" in the next, returns "/tmp". You do NOT need to chain "cd dir && command" unless you want directory changes to be one-shot. Other conversations and the in-app Terminal tab each have their own isolated shells; the rootfs and /root are still shared on disk, so files persist across all of them.
 
+You CAN and SHOULD run an entire multi-step script in a SINGLE call. Put the whole script in `command`, with steps separated by newlines, `&&`, or `;`, or fed through a heredoc (e.g. `bash <<'EOF'` … `EOF`). Running scripts is a core purpose of this tool. NEVER tell the user you can "only run one command at a time", that scripts are "outside your operational boundaries", or that they must paste commands one by one — that is false. If a task needs ten commands, send all ten in one call. This sandbox is Alpine Linux (use `apk add`, `pip`, `git`), NOT Termux — if a script uses `pkg` or `apt`, translate the package-install steps to `apk` rather than refusing.
+
+Python is `python3`; install libraries with `pip install <name>` — it works system-wide here, no virtualenv needed. There is NO `pkg` and NO `python-pip` command (those are Termux/Debian); for system packages use `apk add <name>`, for Python libraries use `pip install <name>`. So a Termux line like `pkg install python-pip` becomes `apk add py3-pip` (already present) and `pip install <lib>`. Create any target directory with `mkdir -p <dir>` before `cd`-ing into it.
+
 Pre-installed: bash, python3 (pip), nodejs, git, curl, wget, jq, plus remote-server tools — ssh, scp, sftp (openssh-client), lftp (FTP/FTPS), rsync. Use them directly, e.g. "ssh user@host 'remote command'", "sftp user@host", "lftp -c 'open ftp://...; put file'". Authentication state (~/.ssh keys, known_hosts) persists.
 
 For SSH workflows: prefer the ssh_configure_host tool once per remote — it writes ~/.ssh/config so subsequent calls don't have to repeat host/user/port/identity flags. After registering, invoke ssh BY THE ALIAS: `ssh myalias 'cmd'`, `scp file myalias:`, `sftp myalias`. The whole point of the config is to feed the alias; bypassing it with `user@host` discards every setting the tool just wrote.
@@ -27,7 +31,7 @@ Password-only servers (no key auth): this shell can't answer interactive passwor
 
 Limits and behavior:
 - Output is capped at 15000 characters per stream; for large output, pipe through head/tail.
-- Default timeout: 30s, max: 60s. Long-running interactive commands (e.g. ssh sessions held across messages) work because the shell is persistent — but a SINGLE call still hits the timeout if it doesn't return.
+- Default timeout: 120s, max: 1800s (30 min). Long-running interactive commands (e.g. ssh sessions held across messages) work because the shell is persistent — but a SINGLE call still hits the timeout if it doesn't return. For longer or unbounded work use background=true.
 - Fullscreen TUIs (top, htop, vim, less, nano, anything ncurses) WILL NOT WORK — the sandbox has no PTY. Use non-interactive variants: "top -bn1" for a one-shot snapshot, "ps aux" for processes, redirect editor output, etc.
 - Set background=true to run a long-lived process detached from the shell (writes to its own session_id). Use manage_process to check on it.
 - Set fresh=true to run in a one-shot isolated shell that doesn't share state with the persistent session. Useful when you specifically want isolation; rarely needed.
@@ -44,7 +48,7 @@ object ShellCommandTool : Tool {
         description = TOOL_DESCRIPTION,
         parameters = mapOf(
             "command" to ParameterSchema("string", "The shell command to execute", true),
-            "timeout" to ParameterSchema("integer", "Timeout in seconds (default 30, max 60)", false),
+            "timeout" to ParameterSchema("integer", "Timeout in seconds (default 120, max 1800)", false),
             "working_dir" to ParameterSchema("string", "If set, run the command starting in this directory (cd <dir> && <command>). The cd persists for subsequent calls — same as if the user had run cd themselves.", false),
             "env" to ParameterSchema("object", "Per-command environment variable overrides. Scoped to this call only; does not persist (use 'export' inside the command if you want persistence).", false),
             "background" to ParameterSchema("boolean", "Run detached as a background job. Returns a session_id; use manage_process to check status. Does not share the persistent shell.", false),
@@ -61,8 +65,8 @@ object ShellCommandTool : Tool {
             return mapOf("success" to false, "error" to "Linux sandbox is not installed. Set it up in Settings > Tools.")
         }
 
-        val timeoutSeconds = ((args["timeout"] as? Number)?.toLong() ?: 30L)
-            .coerceIn(1, 60L)
+        val timeoutSeconds = ((args["timeout"] as? Number)?.toLong() ?: 120L)
+            .coerceIn(1, 1800L)
         val workingDir = args["working_dir"] as? String
 
         val envMap = (args["env"] as? Map<String, Any>)

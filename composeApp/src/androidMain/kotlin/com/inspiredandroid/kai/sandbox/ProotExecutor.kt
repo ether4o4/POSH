@@ -9,8 +9,8 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val MAX_OUTPUT_LENGTH = 15_000
-private const val DEFAULT_TIMEOUT_SECONDS = 30L
-private const val MAX_TIMEOUT_SECONDS = 180L
+private const val DEFAULT_TIMEOUT_SECONDS = 120L
+private const val MAX_TIMEOUT_SECONDS = 1800L
 
 class ProotHandle internal constructor(
     private val process: Process,
@@ -153,6 +153,11 @@ class ProotExecutor(
             "LD_LIBRARY_PATH=$libDir",
             "PROOT_TMP_DIR=$tmpPath",
             "PROOT_LOADER=$loaderPath",
+            // Alpine's system Python is externally-managed (PEP 668), so a plain
+            // `pip install <pkg>` aborts with "externally-managed environment". This is a
+            // disposable single-user sandbox, so let pip install system-wide. Set as an env
+            // var so it also applies to sandboxes provisioned before this shipped.
+            "PIP_BREAK_SYSTEM_PACKAGES=1",
         )
         return baseEnv + extraEnv.map { (k, v) -> "$k=$v" }.toTypedArray()
     }
