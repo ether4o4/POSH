@@ -59,6 +59,13 @@ interface DataRepository {
     fun loadConversations()
     fun loadConversation(id: String)
     suspend fun deleteConversation(id: String)
+
+    /**
+     * Fork the current conversation into a new branch containing its messages up to and
+     * including [fromMessageId]. Returns the new conversation id (or null if there's no
+     * current conversation or the message isn't found). Does not switch to it.
+     */
+    suspend fun branchConversation(fromMessageId: String): String?
     fun startNewChat()
     fun regenerate()
     fun popLastExchange()

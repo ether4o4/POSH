@@ -1530,6 +1530,26 @@ class RemoteDataRepository(
         sandboxController.closeSession(id)
     }
 
+    override suspend fun branchConversation(fromMessageId: String): String? {
+        val currentId = _currentConversationId.value ?: return null
+        val source = savedConversations.value.find { it.id == currentId } ?: return null
+        val idx = source.messages.indexOfFirst { it.id == fromMessageId }
+        if (idx < 0) return null
+        val now = Clock.System.now().toEpochMilliseconds()
+        val newId = Uuid.random().toString()
+        val branched = source.copy(
+            id = newId,
+            messages = source.messages.take(idx + 1),
+            title = source.title.ifBlank { "Chat" } + " (branch)",
+            createdAt = now,
+            updatedAt = now,
+            // A branch starts with a clean shell transcript; the fork copies chat history only.
+            shellTranscript = emptyList(),
+        )
+        conversationStorage.saveConversation(branched)
+        return newId
+    }
+
     override fun regenerate() {
         chatHistory.update { history ->
             val lastUserIndex = history.indexOfLast { it.role == History.Role.USER }
