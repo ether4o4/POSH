@@ -189,15 +189,19 @@ class SkillManager(
     }
 
     /** A cheap fingerprint of the skills folder: each skill's SKILL.md mtime + size. */
-    private suspend fun skillsSignature(): String =
-        sandboxController.listDirectory(SKILLS_DIR)
+    private suspend fun skillsSignature(): String {
+        // `map` is inline, so the suspend listDirectory call inside it is allowed; the
+        // final joinToString then runs over plain strings (its lambda is NOT inline).
+        val parts = sandboxController.listDirectory(SKILLS_DIR)
             .filter { it.isDirectory }
             .sortedBy { it.name }
-            .joinToString("|") { dir ->
+            .map { dir ->
                 val md = sandboxController.listDirectory("$SKILLS_DIR/${dir.name}")
                     .firstOrNull { it.name == "SKILL.md" }
                 "${dir.name}:${md?.lastModifiedMs ?: 0L}:${md?.sizeBytes ?: 0L}"
             }
+        return parts.joinToString("|")
+    }
 
     companion object {
         /** Absolute sandbox path of the skills folder (`~/skills`, home = `/root`). */

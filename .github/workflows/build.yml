@@ -10,9 +10,9 @@ name: Build APK
 # required.
 
 on:
-  pull_request:
-    branches:
-      - main
+  # Push-only (all branches). A PR branch push already fires this, and the run shows
+  # as a check on the PR by commit SHA — so we don't also add a pull_request trigger
+  # (that would double every build). Pushes also publish the dated preview release.
   push:
     branches:
       - '**'
