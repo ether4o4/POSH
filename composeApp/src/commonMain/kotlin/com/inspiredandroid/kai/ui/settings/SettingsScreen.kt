@@ -507,6 +507,9 @@ fun SettingsScreenContent(
                                     onResetSandbox = onResetSandbox,
                                     onInstallPackages = onInstallPackages,
                                 )
+                                Spacer(Modifier.height(16.dp))
+                                // On-device GGUF (llama.cpp) models — Android-only; no-op elsewhere.
+                                PlatformGgufModelsCard()
                             }
                         }
 
