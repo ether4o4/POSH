@@ -716,6 +716,11 @@ class RemoteDataRepository(
         // materialized here.
         val resolvedSkillId = activeSkillId?.takeIf { skillManager.getSkill(it) != null }
         pendingActiveSkillId = resolvedSkillId
+        // Install any packages the skill declares (once per session) before its
+        // instructions reach the model, so the tools it assumes are already present.
+        if (resolvedSkillId != null) {
+            skillManager.ensureDependencies(resolvedSkillId)
+        }
         try {
             askInternal(question, files, uiSubmission)
         } finally {

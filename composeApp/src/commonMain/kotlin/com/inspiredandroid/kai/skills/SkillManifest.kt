@@ -19,6 +19,8 @@ data class SkillManifest(
     val body: String,
     val bundledFilePaths: List<String> = emptyList(),
     val isBuiltIn: Boolean = false,
+    /** Packages the skill declares (bare = Alpine `apk`, `pip:` prefix = Python). */
+    val dependencies: List<String> = emptyList(),
 )
 
 /** Where a skill is downloaded from when installing into the sandbox. */

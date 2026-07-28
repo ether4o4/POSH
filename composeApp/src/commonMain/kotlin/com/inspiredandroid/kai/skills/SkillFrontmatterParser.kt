@@ -11,7 +11,12 @@ object SkillFrontmatterParser {
     private val idRegex = Regex("^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
     sealed class Result {
-        data class Ok(val id: String, val description: String, val body: String) : Result()
+        data class Ok(
+            val id: String,
+            val description: String,
+            val body: String,
+            val dependencies: List<String> = emptyList(),
+        ) : Result()
         data class Err(val reason: String) : Result()
     }
 
@@ -30,6 +35,7 @@ object SkillFrontmatterParser {
 
         var name: String? = null
         var description: String? = null
+        var dependencies: List<String> = emptyList()
         for (rawLine in frontmatter.split('\n')) {
             val line = rawLine.trimEnd()
             if (line.isBlank() || line.startsWith("#")) continue
@@ -40,6 +46,10 @@ object SkillFrontmatterParser {
             when (key) {
                 "name" -> name = value
                 "description" -> description = value
+                // Inline, comma-separated packages the skill needs. A bare token is an
+                // Alpine `apk` package; a `pip:` prefix marks a Python library. POSH installs
+                // these in the sandbox the first time the skill is used.
+                "dependencies" -> dependencies = value.split(',').map { it.trim() }.filter { it.isNotEmpty() }
             }
         }
 
@@ -51,7 +61,7 @@ object SkillFrontmatterParser {
         if (desc.isEmpty()) return Result.Err("'description' must be non-empty.")
         if (desc.length > 1024) return Result.Err("'description' must be ≤ 1024 characters.")
 
-        return Result.Ok(id, desc, body)
+        return Result.Ok(id, desc, body, dependencies)
     }
 
     fun displayName(id: String): String = id.split('-').joinToString(" ") { part ->

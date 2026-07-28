@@ -1,10 +1,12 @@
 package com.inspiredandroid.kai.skills
 
 import com.inspiredandroid.kai.SandboxController
+import com.inspiredandroid.kai.SandboxSessions
 import com.inspiredandroid.kai.getBackgroundDispatcher
 import kai.composeapp.generated.resources.Res
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -47,6 +49,9 @@ class SkillManager(
                 wasInstalled = status.installed
             }
         }
+        // Hot-reload: watch the skills folder and reload live when a SKILL.md is added,
+        // edited, or removed (e.g. the user edits one in the Terminal) — no restart needed.
+        scope.launch { watchForChanges() }
     }
 
     fun getInstalled(): List<SkillManifest> = _skills.value
@@ -100,6 +105,7 @@ class SkillManager(
                         description = parsed.description,
                         body = parsed.body,
                         bundledFilePaths = files,
+                        dependencies = parsed.dependencies,
                     )
                 }
             // Sandbox-installed skills win on id collision so power users can override a built-in.
@@ -128,12 +134,77 @@ class SkillManager(
             description = parsed.description,
             body = parsed.body,
             isBuiltIn = true,
+            dependencies = parsed.dependencies,
         )
     }
+
+    // --- Dependency auto-install ---
+
+    private val depsMutex = Mutex()
+    private val depsInstalled = mutableSetOf<String>()
+
+    /**
+     * Installs the packages a skill declares (once per session) so they're present in
+     * the sandbox before the skill is used. Bare tokens are Alpine `apk` packages; a
+     * `pip:` prefix marks a Python library. Runs on the SYSTEM shell so it doesn't
+     * disturb the chat's own session. No-op for skills without dependencies. Package
+     * names are validated to a safe charset so a skill can't inject shell commands.
+     */
+    suspend fun ensureDependencies(id: String) {
+        val skill = getSkill(id) ?: return
+        if (skill.dependencies.isEmpty()) return
+        val shouldInstall = depsMutex.withLock {
+            if (id in depsInstalled) false else { depsInstalled.add(id); true }
+        }
+        if (!shouldInstall) return
+
+        val safe = Regex("^[a-zA-Z0-9][a-zA-Z0-9._+-]*$")
+        val apk = skill.dependencies.filterNot { it.startsWith("pip:") }.filter { safe.matches(it) }
+        val pip = skill.dependencies.filter { it.startsWith("pip:") }
+            .map { it.removePrefix("pip:").trim() }.filter { safe.matches(it) }
+        val cmds = buildList {
+            if (apk.isNotEmpty()) add("apk add --no-cache ${apk.joinToString(" ")}")
+            if (pip.isNotEmpty()) add("pip install ${pip.joinToString(" ")}")
+        }
+        if (cmds.isEmpty()) return
+        runCatching {
+            sandboxController.executeCommand(cmds.joinToString(" && "), SandboxSessions.SYSTEM)
+        }.onFailure {
+            depsMutex.withLock { depsInstalled.remove(id) } // let it retry on the next turn
+        }
+    }
+
+    // --- Hot-reload watcher ---
+
+    /** Polls the skills folder's signature and reloads the cache when it changes. */
+    private suspend fun watchForChanges() {
+        var lastSig: String? = null
+        while (true) {
+            delay(WATCH_INTERVAL_MS)
+            if (!sandboxController.status.value.installed) continue
+            val sig = runCatching { skillsSignature() }.getOrNull() ?: continue
+            if (lastSig != null && sig != lastSig) load()
+            lastSig = sig
+        }
+    }
+
+    /** A cheap fingerprint of the skills folder: each skill's SKILL.md mtime + size. */
+    private suspend fun skillsSignature(): String =
+        sandboxController.listDirectory(SKILLS_DIR)
+            .filter { it.isDirectory }
+            .sortedBy { it.name }
+            .joinToString("|") { dir ->
+                val md = sandboxController.listDirectory("$SKILLS_DIR/${dir.name}")
+                    .firstOrNull { it.name == "SKILL.md" }
+                "${dir.name}:${md?.lastModifiedMs ?: 0L}:${md?.sizeBytes ?: 0L}"
+            }
 
     companion object {
         /** Absolute sandbox path of the skills folder (`~/skills`, home = `/root`). */
         const val SKILLS_DIR = "/root/skills"
+
+        /** How often the hot-reload watcher polls the skills folder for edits. */
+        private const val WATCH_INTERVAL_MS = 4000L
 
         /**
          * Ids of skills bundled in compose resources at
