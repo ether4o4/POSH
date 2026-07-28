@@ -1,0 +1,181 @@
+name: Build APK
+
+# Builds a sideloadable Android APK for every push and pull request so the change
+# can be installed on a device, and (on branch pushes / manual runs) publishes a
+# dated GitHub pre-release plus a rolling `android-preview-latest` pre-release to
+# this repo so testers get a stable direct APK URL.
+#
+# Uses the `fossDebug` variant (open-source flavor, debug build type). Debug builds
+# are signed with Android's auto-generated debug keystore, so no signing secrets are
+# required.
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional primary pre-release tag. Defaults to android-preview-YYYY-MM-DD.
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PREVIEW_APK_NAME: POSH-android-preview.apk
+
+jobs:
+  build-apk:
+    name: Build foss debug APK
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    env:
+      RELEASES_REPO: ${{ vars.RELEASES_REPO || github.repository }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # The sandbox ships native libraries (proot/talloc) under jniLibs with
+      # useLegacyPackaging, so even debug assembles run stripDebugSymbols and need
+      # the NDK build tools. AGP auto-provisions the NDK via the SDK manager.
+      - name: Install Android build tools
+        run: |
+          sdkmanager "build-tools;36.0.0"
+          sdkmanager "build-tools;29.0.3"
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Set execution flag for gradlew
+        run: chmod +x gradlew
+
+      # Give every CI APK a strictly-greater versionCode than the last, so a
+      # sideloaded preview-over-preview install is treated as a real update.
+      - name: Bump preview versionCode (unique per CI run)
+        run: |
+          set -euo pipefail
+          BASE="$(grep '^android-versionCode' gradle/libs.versions.toml | sed -E 's/.*"([^"]+)".*/\1/' || true)"
+          if [ -n "${BASE:-}" ]; then
+            NEW=$((BASE + GITHUB_RUN_NUMBER))
+            sed -i "s/^android-versionCode = .*/android-versionCode = \"$NEW\"/" gradle/libs.versions.toml
+            echo "preview versionCode: $BASE -> $NEW (run #$GITHUB_RUN_NUMBER)"
+          else
+            echo "android-versionCode key not found; leaving versionCode untouched"
+          fi
+
+      - name: Build foss debug APK
+        run: bash ./gradlew :androidApp:assembleFossDebug --stacktrace
+
+      - name: Prepare preview APK
+        id: preview
+        env:
+          REQUESTED_RELEASE_TAG: ${{ github.event.inputs.release_tag || '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p preview-output
+          APK_PATH="$(find androidApp/build/outputs/apk/foss/debug -type f -name '*.apk' | head -n 1)"
+          if [ -z "$APK_PATH" ]; then
+            echo "No APK found under androidApp/build/outputs/apk/foss/debug" >&2
+            exit 1
+          fi
+          cp "$APK_PATH" "preview-output/${PREVIEW_APK_NAME}"
+          sha256sum "preview-output/${PREVIEW_APK_NAME}" | tee preview-output/sha256.txt
+          PREVIEW_DATE="$(date -u +%Y-%m-%d)"
+          if [ -n "$REQUESTED_RELEASE_TAG" ]; then
+            PREVIEW_TAG="$REQUESTED_RELEASE_TAG"
+          else
+            PREVIEW_TAG="android-preview-${PREVIEW_DATE}"
+          fi
+          echo "tag=${PREVIEW_TAG}" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=android-preview-latest" >> "$GITHUB_OUTPUT"
+          echo "date=${PREVIEW_DATE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: posh-foss-debug-${{ github.event.pull_request.number || github.sha }}
+          path: preview-output/${{ env.PREVIEW_APK_NAME }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Write pre-release notes
+        if: github.event_name != 'pull_request'
+        run: |
+          APK_SHA="$(cut -d ' ' -f1 preview-output/sha256.txt)"
+          cat > preview-output/release-notes.md << EOF
+          POSH Android preview APK built from \`${GITHUB_SHA}\` on \`${GITHUB_REF_NAME}\`.
+
+          - Variant: \`fossDebug\`
+          - APK SHA-256: \`${APK_SHA}\`
+          - Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - Direct download: ${GITHUB_SERVER_URL}/${RELEASES_REPO}/releases/download/${{ steps.preview.outputs.tag }}/${PREVIEW_APK_NAME}
+          - Rolling latest: ${GITHUB_SERVER_URL}/${RELEASES_REPO}/releases/download/${{ steps.preview.outputs.latest_tag }}/${PREVIEW_APK_NAME}
+
+          Sideloadable preview build, not a production release.
+          EOF
+
+      - name: Publish dated preview pre-release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ env.RELEASES_REPO }}
+          token: ${{ secrets.RELEASES_REPO_TOKEN || github.token }}
+          tag_name: ${{ steps.preview.outputs.tag }}
+          name: POSH Android Preview ${{ steps.preview.outputs.date }}
+          body_path: preview-output/release-notes.md
+          prerelease: true
+          make_latest: false
+          files: preview-output/${{ env.PREVIEW_APK_NAME }}
+          fail_on_unmatched_files: true
+
+      - name: Publish rolling latest preview pre-release
+        if: github.event_name != 'pull_request' && steps.preview.outputs.tag != steps.preview.outputs.latest_tag
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ env.RELEASES_REPO }}
+          token: ${{ secrets.RELEASES_REPO_TOKEN || github.token }}
+          tag_name: ${{ steps.preview.outputs.latest_tag }}
+          name: POSH Android Preview Latest (${{ steps.preview.outputs.date }})
+          body_path: preview-output/release-notes.md
+          prerelease: true
+          make_latest: false
+          files: preview-output/${{ env.PREVIEW_APK_NAME }}
+          fail_on_unmatched_files: true
+
+      - name: Summarize
+        run: |
+          {
+            echo "### POSH preview APK ready"
+            echo ""
+            echo "**Variant:** \`fossDebug\`"
+            echo ""
+            echo "Download from the **Artifacts** section of this run, or the Releases page."
+          } >> "$GITHUB_STEP_SUMMARY"
