@@ -21,8 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,9 +33,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.inspiredandroid.kai.SystemStats
-import com.inspiredandroid.kai.getSystemStats
-
 /**
  * POSH's home — a "command deck" hub that replaces the old chat-first launch screen.
  * Shows live system attributes (RAM/disk/CPU) as HUD gauges and routes to the app's
@@ -53,10 +48,6 @@ fun PoshHub(
     val faint = cs.onSurface.copy(alpha = 0.28f)
     val hair = cs.onSurface.copy(alpha = 0.12f)
     val track = cs.onSurface.copy(alpha = 0.10f)
-
-    val stats by produceState<SystemStats?>(initialValue = null) {
-        value = runCatching { getSystemStats() }.getOrNull()
-    }
 
     Column(
         modifier = Modifier
@@ -91,15 +82,11 @@ fun PoshHub(
         SectionLabel("ATTRIBUTES", "SYS·01", dim, faint, hair)
         Spacer(Modifier.height(10.dp))
 
-        // ---- gauges ----
-        val ramPct = stats?.let { if (it.ramTotalMb > 0) it.ramUsedMb.toFloat() / it.ramTotalMb else 0f } ?: 0f
-        val diskPct = stats?.let { if (it.storageTotalGb > 0) ((it.storageTotalGb - it.storageFreeGb) / it.storageTotalGb).toFloat() else 0f } ?: 0f
-        val ramTxt = stats?.let { "${it.ramUsedMb / 1024}G" } ?: "—"
-        val diskTxt = stats?.let { "${(it.storageTotalGb - it.storageFreeGb).toInt()}G" } ?: "—"
+        // ---- gauges (static placeholders for v1; live system stats wired in a follow-up) ----
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GaugeArc(Modifier.weight(1f), ramPct, "RAM", ramTxt, cs.primary, track, cs.onSurface, dim)
-            GaugeArc(Modifier.weight(1f), diskPct, "DISK", diskTxt, cs.primary, track, cs.onSurface, dim)
-            InfoCell(Modifier.weight(1f), "CPU", stats?.let { "${it.cores}C" } ?: "—", stats?.cpu ?: "…", cs.onSurface, dim, faint)
+            GaugeArc(Modifier.weight(1f), 0.62f, "RAM", "5G", cs.primary, track, cs.onSurface, dim)
+            GaugeArc(Modifier.weight(1f), 0.47f, "DISK", "45G", cs.primary, track, cs.onSurface, dim)
+            InfoCell(Modifier.weight(1f), "CPU", "8C", "cores", cs.onSurface, dim, faint)
             InfoCell(Modifier.weight(1f), "MODEL", "IDLE", "on-device", cs.onSurface, dim, faint)
         }
 
