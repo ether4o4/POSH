@@ -50,6 +50,16 @@ android {
     }
 
     signingConfigs {
+        // Checked-in debug keystore (standard Android debug credentials, not a
+        // secret). Without a stable key, each CI runner auto-generates a fresh
+        // debug keystore, so no preview APK can ever install as an update over a
+        // previous one — Android rejects updates whose signing key changed.
+        getByName("debug") {
+            storeFile = file("preview-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         create("release") {
             val ksFile = System.getenv("KEYSTORE_FILE")
             if (ksFile != null) {
