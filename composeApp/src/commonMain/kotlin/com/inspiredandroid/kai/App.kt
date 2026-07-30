@@ -53,6 +53,7 @@ import com.inspiredandroid.kai.ui.chat.ChatScreen
 import com.inspiredandroid.kai.ui.chat.ChatViewModel
 import com.inspiredandroid.kai.ui.components.FullScreenImageHost
 import com.inspiredandroid.kai.ui.handCursor
+import com.inspiredandroid.kai.ui.hub.PoshHub
 import com.inspiredandroid.kai.ui.rememberSandboxAwareUriHandler
 import com.inspiredandroid.kai.ui.settings.SettingsScreen
 import com.inspiredandroid.kai.ui.withBlackBackground
@@ -76,6 +77,10 @@ object Home
 @Serializable
 @SerialName("settings")
 object Settings
+
+@Serializable
+@SerialName("chat")
+object Chat
 
 @Composable
 fun App(
@@ -223,6 +228,12 @@ private fun AppContent(
                     modifier = Modifier.background(MaterialTheme.colorScheme.background),
                 ) {
                     composable<Home> {
+                        PoshHub(
+                            onOpenChat = { navController.navigate(Chat) },
+                            onOpenSettings = { navController.navigate(Settings) },
+                        )
+                    }
+                    composable<Chat> {
                         ChatScreen(
                             viewModel = chatViewModel,
                             textToSpeech = textToSpeech,
