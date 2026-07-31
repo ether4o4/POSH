@@ -852,6 +852,10 @@ class SettingsViewModel(
         _state.update { it.copy(skills = dataRepository.getInstalledSkills().toImmutableList()) }
     }
 
+    /** Re-read the installed-skills list after an external write (e.g. the hub's
+     *  create-skill page saving a SKILL.md straight into the sandbox). */
+    fun refreshInstalledSkills() = refreshSkills()
+
     private fun onUninstallSkill(id: String) {
         commitPendingDeletion()
         _state.update { it.copy(pendingDeletion = PendingDeletion.Skill(id)) }

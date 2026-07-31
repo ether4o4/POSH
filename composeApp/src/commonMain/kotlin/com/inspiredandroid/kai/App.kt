@@ -53,6 +53,13 @@ import com.inspiredandroid.kai.ui.chat.ChatScreen
 import com.inspiredandroid.kai.ui.chat.ChatViewModel
 import com.inspiredandroid.kai.ui.components.FullScreenImageHost
 import com.inspiredandroid.kai.ui.handCursor
+import com.inspiredandroid.kai.ui.hub.ConfigScreen
+import com.inspiredandroid.kai.ui.hub.MemoryScreen
+import com.inspiredandroid.kai.ui.hub.ModelsScreen
+import com.inspiredandroid.kai.ui.hub.PoshHub
+import com.inspiredandroid.kai.ui.hub.ProjectsScreen
+import com.inspiredandroid.kai.ui.hub.SkillsScreen
+import com.inspiredandroid.kai.ui.hub.TerminalScreen
 import com.inspiredandroid.kai.ui.rememberSandboxAwareUriHandler
 import com.inspiredandroid.kai.ui.settings.SettingsScreen
 import com.inspiredandroid.kai.ui.withBlackBackground
@@ -76,6 +83,34 @@ object Home
 @Serializable
 @SerialName("settings")
 object Settings
+
+@Serializable
+@SerialName("chat")
+object Chat
+
+@Serializable
+@SerialName("terminal")
+object Terminal
+
+@Serializable
+@SerialName("models")
+object Models
+
+@Serializable
+@SerialName("skills")
+object Skills
+
+@Serializable
+@SerialName("projects")
+object Projects
+
+@Serializable
+@SerialName("memory")
+object Memory
+
+@Serializable
+@SerialName("config")
+object Config
 
 @Composable
 fun App(
@@ -223,6 +258,47 @@ private fun AppContent(
                     modifier = Modifier.background(MaterialTheme.colorScheme.background),
                 ) {
                     composable<Home> {
+                        PoshHub(
+                            onOpenChat = { navController.navigate(Chat) },
+                            onOpenTerminal = { navController.navigate(Terminal) },
+                            onOpenModels = { navController.navigate(Models) },
+                            onOpenSkills = { navController.navigate(Skills) },
+                            onOpenProjects = { navController.navigate(Projects) },
+                            onOpenMemory = { navController.navigate(Memory) },
+                            onOpenConfig = { navController.navigate(Config) },
+                            onOpenSettings = { navController.navigate(Settings) },
+                        )
+                    }
+                    composable<Terminal> {
+                        TerminalScreen(onBack = { navController.navigateUp() })
+                    }
+                    composable<Models> {
+                        ModelsScreen(onBack = { navController.navigateUp() })
+                    }
+                    composable<Skills> {
+                        SkillsScreen(
+                            onBack = {
+                                chatViewModel.refreshSettings()
+                                navController.navigateUp()
+                            },
+                            onOpenSettings = { navController.navigate(Settings) },
+                        )
+                    }
+                    composable<Projects> {
+                        ProjectsScreen(onBack = { navController.navigateUp() })
+                    }
+                    composable<Memory> {
+                        MemoryScreen(onBack = { navController.navigateUp() })
+                    }
+                    composable<Config> {
+                        ConfigScreen(
+                            onBack = {
+                                chatViewModel.refreshSettings()
+                                navController.navigateUp()
+                            },
+                        )
+                    }
+                    composable<Chat> {
                         ChatScreen(
                             viewModel = chatViewModel,
                             textToSpeech = textToSpeech,
