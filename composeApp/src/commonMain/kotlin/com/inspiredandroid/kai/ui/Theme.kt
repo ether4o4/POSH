@@ -19,7 +19,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,9 +49,10 @@ val gradientMagenta = Color(0xFFFF5252)
 
 fun Modifier.handCursor() = pointerHoverIcon(PointerIcon.Hand, overrideDescendants = true)
 
-// POSH dark theme: red accent on a near-black surface with white content. Background is
-// 0xFF0A0A0A (not pure black) so it stays distinct from the OledBlack mode, which forces
-// pure black via withBlackBackground() and drives the isOledFlavor card styling.
+// POSH scheme: pure-black screen, white text, red accents and outlines. Both theme
+// modes resolve to this palette — the theme picker still exists, but POSH's identity
+// is black/red/white everywhere. Pure-black background also flips isOledFlavor, so
+// cards render as transparent-with-red-outline panels instead of gray fills.
 val DarkColorScheme = darkColorScheme(
     primary = Color(0xFFFF3B30),
     onPrimary = Color(0xFFFFFFFF),
@@ -64,14 +64,14 @@ val DarkColorScheme = darkColorScheme(
     onSecondaryContainer = Color(0xFFFFDAD6),
     tertiary = Color(0xFFFFFFFF),
     onTertiary = Color(0xFF000000),
-    surface = Color(0xFF161616),
-    surfaceVariant = Color(0xFF2A2A2A),
+    surface = Color(0xFF000000),
+    surfaceVariant = Color(0xFF141414),
     onSurfaceVariant = Color(0xFFCCCCCC),
-    background = Color(0xFF0A0A0A),
+    background = Color(0xFF000000),
     onBackground = Color(0xFFFFFFFF),
     onSurface = Color(0xFFFFFFFF),
-    outline = Color(0xFF555555),
-    outlineVariant = Color(0xFF333333),
+    outline = Color(0xFFCF2E2E),
+    outlineVariant = Color(0xFF7A1C1C),
 )
 
 fun ColorScheme.withBlackBackground(): ColorScheme = copy(
@@ -116,24 +116,9 @@ fun Modifier.kaiAdaptiveCardSurface(shape: Shape = CardDefaults.shape): Modifier
         },
     )
 
-// POSH light theme: red accent on white with black content.
-val LightColorScheme = lightColorScheme(
-    primary = darkPurple,
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFFFDAD6),
-    onPrimaryContainer = Color(0xFF410002),
-    secondary = Color(0xFFB71C1C),
-    onSecondary = Color(0xFFFFFFFF),
-    tertiary = Color(0xFF000000),
-    onTertiary = Color(0xFFFFFFFF),
-    surface = Color(0xFFF2F2F2),
-    surfaceVariant = Color(0xFFE7E7E7),
-    onSurfaceVariant = Color(0xFF444444),
-    background = Color(0xFFFFFFFF),
-    onBackground = Color(0xFF000000),
-    onSurface = Color(0xFF000000),
-    outline = Color(0xFFBBBBBB),
-)
+// "Light" mode resolves to the same black/red/white palette — POSH is black-screen
+// everywhere by design.
+val LightColorScheme = DarkColorScheme
 
 // POSH text boxes: black container with cyan text, in both light and dark themes.
 val textBoxBackground = Color(0xFF000000)

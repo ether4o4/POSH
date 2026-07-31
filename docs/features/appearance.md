@@ -2,9 +2,9 @@
 
 **Last verified:** 2026-07-31
 
-POSH uses a **red / white / black** brand scheme. The light theme is a white canvas with black content and red accents; the dark theme is a near-black canvas with white content and red accents. The app icon and in-app logo are a white shell prompt (">_") on a red rounded square — the animated purple two-circle mark inherited from the upstream app (and the matching purple launcher icon) were removed, including from the chat empty state.
+POSH is **black-screen everywhere**: a pure-black background with white text, red accents, and red outlines. Every theme-picker mode resolves to this same palette — "Light" is not a white theme — and wallpaper-derived Material You dynamic colors are disabled on Android so the brand scheme always wins. Because the background is pure black, cards render as transparent panels with red outline borders rather than gray fills. The app icon and in-app logo are a white shell prompt (">_") on a red rounded square.
 
-A four-way theme picker — **System**, **Light**, **Dark**, and **OLED** — is exposed in Settings on every platform. The default is System, which follows the operating system's dark/light preference. The other three force a specific theme regardless of system state. OLED flattens the background and the lowest surface tier to pure black for users who want to save power on OLED panels.
+The four-way theme picker (**System**, **Light**, **Dark**, **OLED**) still exists in Settings but is currently cosmetic, since all modes map to the black scheme.
 
 ## Text boxes
 
@@ -12,13 +12,9 @@ All text input fields — the chat input, API-key and base-URL fields, search fi
 
 ## Behavior
 
-- **System**: the OS dark/light preference decides between the light and dark schemes.
-- **Light**: white background, black text, red primary accent.
-- **Dark**: near-black background (`#0A0A0A`) with slightly lighter surfaces, white text, red primary accent. The background is deliberately not pure black so it stays distinct from OLED mode.
-- **OLED**: dark + pure-black override. Background, surface, and the lowest surface tier render pure black; elevated container tiers are unchanged so cards and menus stay visible against black. Cards switch to a transparent-with-outline style in this mode.
-- **Reactivity**: changing the theme picker recomposes the theme immediately without an app restart.
-
-The picker exists on every platform because system theme detection is unreliable on some desktop window systems (notably Linux/Wayland), so users there need an explicit override.
+- All picker modes resolve to the black/red/white palette: background and surfaces pure black, text white, primary accent red, outlines red (bright red focused, dark red for card borders).
+- Cards, service rows, and hub tiles render transparent with a red/white hairline border against the black background.
+- **Reactivity**: changing the theme picker recomposes immediately without an app restart (though visually all modes currently match).
 
 ## Component guidance
 

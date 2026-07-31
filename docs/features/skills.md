@@ -1,6 +1,8 @@
 # Skills
 
-**Last verified:** 2026-07-18
+**Last verified:** 2026-07-31
+
+> **POSH addition:** skills can also be created in-app from the hub's **Skills** page — a name/description/instructions form writes the skill's definition file directly into the sandbox, where hot-reload activates it immediately. See [hub.md](hub.md).
 
 Kai supports installable **skills**: reusable instruction bundles, modeled on Anthropic's [SKILL.md](https://github.com/anthropics/skills) format (now an open standard at [agentskills.io](https://agentskills.io)). A skill packages a name, a description, a body of instructions, and optional bundled files.
 

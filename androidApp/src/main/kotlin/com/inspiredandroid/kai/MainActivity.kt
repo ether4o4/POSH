@@ -1,7 +1,6 @@
 package com.inspiredandroid.kai
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -9,15 +8,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
@@ -40,7 +36,6 @@ class MainActivity : ComponentActivity() {
         FileKit.init(this)
         handleDeepLinkIntent(intent)
 
-        val dynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         val appSettings: AppSettings = get()
         setContent {
             val themeMode by appSettings.themeModeFlow.collectAsStateWithLifecycle()
@@ -70,9 +65,10 @@ class MainActivity : ComponentActivity() {
                     },
                 )
             }
-            val context = LocalContext.current
-            val lightScheme: ColorScheme = if (dynamicColor) dynamicLightColorScheme(context) else LightColorScheme
-            val darkScheme: ColorScheme = if (dynamicColor) dynamicDarkColorScheme(context) else DarkColorScheme
+            // POSH is always black/red/white; wallpaper-derived Material You dynamic
+            // colors would override the brand scheme, so they are not used.
+            val lightScheme: ColorScheme = LightColorScheme
+            val darkScheme: ColorScheme = DarkColorScheme
             val navController = rememberNavController()
             // Defer TTS initialization until after the first frame
             var ttsReady by remember { mutableStateOf(false) }

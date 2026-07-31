@@ -41,6 +41,12 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun PoshHub(
     onOpenChat: () -> Unit,
+    onOpenTerminal: () -> Unit,
+    onOpenModels: () -> Unit,
+    onOpenSkills: () -> Unit,
+    onOpenProjects: () -> Unit,
+    onOpenMemory: () -> Unit,
+    onOpenConfig: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
@@ -119,14 +125,14 @@ fun PoshHub(
         // ---- tiles ----
         val tiles = listOf(
             HubTile("◉", "CHAT", "talk to the AI", onOpenChat),
-            HubTile("▚", "TERMINAL", "the live shell", onOpenSettings),
-            HubTile("⬡", "MODELS", "gguf on-device", onOpenSettings),
-            HubTile("✦", "SKILLS", "equipped", onOpenSettings),
-            HubTile("⌘", "PROJECT", "start new", onOpenChat),
+            HubTile("▚", "TERMINAL", "the live shell", onOpenTerminal),
+            HubTile("⬡", "MODELS", "gguf on-device", onOpenModels),
+            HubTile("✦", "SKILLS", "create · equip", onOpenSkills),
+            HubTile("⌘", "PROJECTS", "start · resume", onOpenProjects),
             HubTile("▤", "FILES", "the sandbox", onOpenSettings),
-            HubTile("✜", "MEMORY", "what it knows", onOpenSettings),
-            HubTile("◈", "CONFIG", "persona · engine", onOpenSettings),
-            HubTile("⚙", "SETTINGS", "app · theme", onOpenSettings),
+            HubTile("✜", "MEMORY", "what it knows", onOpenMemory),
+            HubTile("◈", "CONFIG", "persona · engine", onOpenConfig),
+            HubTile("⚙", "SETTINGS", "sandbox · tools", onOpenSettings),
         )
         tiles.chunked(3).forEach { rowTiles ->
             Row(

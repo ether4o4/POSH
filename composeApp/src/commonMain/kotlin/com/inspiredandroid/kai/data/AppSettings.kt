@@ -255,6 +255,21 @@ class AppSettings(internal val settings: Settings) {
     // Soul (system prompt)
     fun getSoulText(): String = settings.getString(KEY_SOUL, "")
 
+    // POSH projects: persisted list of project names, newest first. Each project also
+    // maps to a directory in the sandbox; the settings entry is the source of truth
+    // for the list so it survives sandbox resets.
+    fun getProjectNames(): List<String> {
+        val raw = settings.getStringOrNull(KEY_PROJECTS) ?: return emptyList()
+        return runCatching {
+            Json.parseToJsonElement(raw).jsonArray.mapNotNull { (it as? JsonPrimitive)?.content }
+        }.getOrDefault(emptyList())
+    }
+
+    fun setProjectNames(names: List<String>) {
+        val json = kotlinx.serialization.json.buildJsonArray { names.forEach { add(JsonPrimitive(it)) } }
+        settings.putString(KEY_PROJECTS, json.toString())
+    }
+
     fun setSoulText(text: String) {
         settings.putString(KEY_SOUL, text)
     }
@@ -535,6 +550,7 @@ class AppSettings(internal val settings: Settings) {
         const val KEY_MIGRATION_COMPLETE = "migration_complete_v1"
         const val KEY_TOOL_PREFIX = "tool_enabled_"
         const val KEY_SOUL = "soul_text"
+        const val KEY_PROJECTS = "posh_projects"
         const val KEY_MEMORY_ENABLED = "memory_enabled"
         const val KEY_MEMORY_INSTRUCTIONS = "memory_instructions"
         const val KEY_AGENT_MEMORIES = "agent_memories"

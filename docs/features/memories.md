@@ -1,6 +1,8 @@
 # Memories
 
-**Last verified:** 2026-07-18
+**Last verified:** 2026-07-31
+
+> **POSH addition:** memories are also browsable and deletable from the hub's **Memory** page. See [hub.md](hub.md).
 
 Kai's memory system allows the AI to learn and retain information across conversations. Memories are stored persistently, injected into every system prompt for context, and can be reinforced over time. Well-established memories can be promoted into permanent behavior via the heartbeat feature.
 
