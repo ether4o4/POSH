@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -23,13 +22,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -38,7 +33,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -49,18 +43,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
@@ -74,14 +64,11 @@ import com.inspiredandroid.kai.inference.LocalModel
 import com.inspiredandroid.kai.inference.ModelImportError
 import com.inspiredandroid.kai.inference.calculateDevicePerformance
 import com.inspiredandroid.kai.inference.estimateGpuMemoryMb
-import com.inspiredandroid.kai.network.dtos.SponsorsResponseDto
 import com.inspiredandroid.kai.ui.KaiClearableTextField
 import com.inspiredandroid.kai.ui.components.KaiSlider
 import com.inspiredandroid.kai.ui.components.VerticalScrollbarForScroll
 import com.inspiredandroid.kai.ui.handCursor
 import com.inspiredandroid.kai.ui.icons.DragIndicator
-import com.inspiredandroid.kai.ui.kaiAdaptiveCardBorder
-import com.inspiredandroid.kai.ui.kaiAdaptiveCardColors
 import com.inspiredandroid.kai.ui.kaiAdaptiveCardSurface
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -112,21 +99,10 @@ import kai.composeapp.generated.resources.settings_add_service
 import kai.composeapp.generated.resources.settings_api_key_label
 import kai.composeapp.generated.resources.settings_api_key_optional_label
 import kai.composeapp.generated.resources.settings_base_url_label
-import kai.composeapp.generated.resources.settings_become_sponsor
-import kai.composeapp.generated.resources.settings_business_partnerships
-import kai.composeapp.generated.resources.settings_business_partnerships_description
-import kai.composeapp.generated.resources.settings_contact_sponsorship
-import kai.composeapp.generated.resources.settings_free_fallback
-import kai.composeapp.generated.resources.settings_free_tier_description
-import kai.composeapp.generated.resources.settings_free_tier_title
 import kai.composeapp.generated.resources.settings_open_app_settings
-import kai.composeapp.generated.resources.settings_openai_compatible_or_other_service
-import kai.composeapp.generated.resources.settings_openai_compatible_providers
-import kai.composeapp.generated.resources.settings_openai_compatible_setup_ollama
 import kai.composeapp.generated.resources.settings_remove_service
 import kai.composeapp.generated.resources.settings_reorder_content_description
 import kai.composeapp.generated.resources.settings_sign_in_copy_api_key_from
-import kai.composeapp.generated.resources.settings_sponsors
 import kai.composeapp.generated.resources.settings_status_checking
 import kai.composeapp.generated.resources.settings_status_connected
 import kai.composeapp.generated.resources.settings_status_error
@@ -144,166 +120,6 @@ import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 import sh.calvin.reorderable.ReorderableColumn
 import kotlin.math.roundToInt
-
-@Composable
-internal fun FreeSettings(
-    showFallbackToggle: Boolean = false,
-    isFreeFallbackEnabled: Boolean = true,
-    onToggleFreeFallback: (Boolean) -> Unit = {},
-    currentSponsors: ImmutableList<SponsorsResponseDto.Sponsor> = persistentListOf(),
-    pastSponsors: ImmutableList<SponsorsResponseDto.Sponsor> = persistentListOf(),
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = kaiAdaptiveCardColors(),
-        border = kaiAdaptiveCardBorder(),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(Res.string.settings_free_tier_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-
-            if (showFallbackToggle) {
-                Spacer(Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onToggleFreeFallback(!isFreeFallbackEnabled) }
-                        .handCursor(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(Res.string.settings_free_fallback),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Switch(
-                        checked = isFreeFallbackEnabled,
-                        onCheckedChange = onToggleFreeFallback,
-                    )
-                }
-                Spacer(Modifier.height(6.dp))
-            }
-
-            Spacer(Modifier.height(6.dp))
-
-            Text(
-                text = stringResource(Res.string.settings_free_tier_description),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            val uriHandler = LocalUriHandler.current
-            Button(
-                onClick = {
-                    uriHandler.openUri("https://github.com/sponsors/SimonSchubert")
-                },
-                Modifier
-                    .align(CenterHorizontally)
-                    .handCursor(),
-            ) {
-                Icon(Icons.Default.Favorite, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(Res.string.settings_become_sponsor))
-            }
-
-            val allSponsors = remember(currentSponsors, pastSponsors) {
-                val activeUsernames = currentSponsors.map { it.username }.toSet()
-                (currentSponsors + pastSponsors.filter { it.username !in activeUsernames })
-                    .toImmutableList()
-            }
-
-            if (allSponsors.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider(thickness = 0.5.dp)
-                Spacer(Modifier.height(16.dp))
-                SponsorList(
-                    title = stringResource(Res.string.settings_sponsors),
-                    sponsors = allSponsors,
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider(thickness = 0.5.dp)
-            Spacer(Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(Res.string.settings_business_partnerships),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = stringResource(Res.string.settings_business_partnerships_description),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            TextButton(
-                onClick = {
-                    uriHandler.openUri("https://schubert-simon.de")
-                },
-                Modifier
-                    .handCursor(),
-            ) {
-                Text(stringResource(Res.string.settings_contact_sponsorship))
-            }
-        }
-    }
-}
-
-@Composable
-private fun SponsorList(
-    title: String,
-    sponsors: ImmutableList<SponsorsResponseDto.Sponsor>,
-) {
-    val uriHandler = LocalUriHandler.current
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(8.dp))
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        sponsors.forEach { sponsor ->
-            Column(
-                horizontalAlignment = CenterHorizontally,
-                modifier = Modifier
-                    .width(72.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { uriHandler.openUri("https://github.com/${sponsor.username}") }
-                    .handCursor()
-                    .padding(4.dp),
-            ) {
-                coil3.compose.AsyncImage(
-                    model = sponsor.avatar,
-                    contentDescription = sponsor.username,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = sponsor.username,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
-    }
-}
 
 @Composable
 internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions) {
@@ -362,16 +178,6 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
             Text(stringResource(Res.string.settings_add_service))
         }
     }
-
-    // Free tier card (always at bottom)
-    Spacer(Modifier.height(16.dp))
-    FreeSettings(
-        showFallbackToggle = entries.isNotEmpty(),
-        isFreeFallbackEnabled = uiState.isFreeFallbackEnabled,
-        onToggleFreeFallback = actions.onToggleFreeFallback,
-        currentSponsors = uiState.currentSponsors,
-        pastSponsors = uiState.pastSponsors,
-    )
 
     // Add service bottom sheet
     if (showAddServiceSheet) {
@@ -698,10 +504,7 @@ private fun OpenAICompatibleSettings(
         value = baseUrl,
         onValueChange = onChangeBaseUrl,
         label = {
-            Text(
-                stringResource(Res.string.settings_base_url_label),
-                color = MaterialTheme.colorScheme.onBackground,
-            )
+            Text(stringResource(Res.string.settings_base_url_label))
         },
         singleLine = true,
     )
@@ -726,37 +529,6 @@ private fun OpenAICompatibleSettings(
     Spacer(Modifier.height(8.dp))
 
     ConnectionStatusIndicator(connectionStatus, onOpenAppPermissionSettings)
-
-    Spacer(Modifier.height(8.dp))
-
-    val linkColor = MaterialTheme.colorScheme.primary
-    val setupOllamaText = stringResource(Res.string.settings_openai_compatible_setup_ollama)
-    val orOtherServiceText = stringResource(Res.string.settings_openai_compatible_or_other_service)
-    val providersText = stringResource(Res.string.settings_openai_compatible_providers)
-    val annotatedString = remember(setupOllamaText, orOtherServiceText, providersText, linkColor) {
-        buildAnnotatedString {
-            append(setupOllamaText)
-            append(" ")
-            withLink(LinkAnnotation.Url(url = "https://github.com/ollama/ollama")) {
-                withStyle(style = SpanStyle(color = linkColor)) {
-                    append("github.com/ollama/ollama")
-                }
-            }
-            append(" ")
-            append(orOtherServiceText)
-            append(" ")
-            withLink(LinkAnnotation.Url(url = "https://docs.litellm.ai/docs/providers")) {
-                withStyle(style = SpanStyle(color = linkColor)) {
-                    append(providersText)
-                }
-            }
-        }
-    }
-    Text(
-        annotatedString,
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.onBackground,
-    )
 
     Spacer(Modifier.height(16.dp))
 
@@ -1243,10 +1015,7 @@ private fun ApiKeyField(
         value = apiKey,
         onValueChange = onChangeApiKey,
         label = {
-            Text(
-                labelText,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
+            Text(labelText)
         },
         singleLine = singleLine,
     )

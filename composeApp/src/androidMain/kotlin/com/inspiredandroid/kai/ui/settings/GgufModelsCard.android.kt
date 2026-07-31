@@ -40,6 +40,7 @@ import com.inspiredandroid.kai.data.DataRepository
 import com.inspiredandroid.kai.data.Service
 import com.inspiredandroid.kai.sandbox.GgufServerManager
 import com.inspiredandroid.kai.ui.handCursor
+import com.inspiredandroid.kai.ui.outlineTextFieldColors
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -200,6 +201,7 @@ actual fun PlatformGgufModelsCard() {
                 label = { Text("HuggingFace repo, repo URL, or .gguf URL") },
                 placeholder = { Text("bartowski/Qwen2.5-0.5B-Instruct-GGUF") },
                 singleLine = true,
+                colors = outlineTextFieldColors(),
                 supportingText = {
                     Text(
                         text = "Must be a GGUF repo (e.g. bartowski/…-GGUF or litert-community/…). Vanilla model repos like 'gpt2' don't contain .gguf files and won't work.",
@@ -215,6 +217,7 @@ actual fun PlatformGgufModelsCard() {
                 label = { Text("Quant (optional — default picks Q4_K_M)") },
                 placeholder = { Text("Q4_K_M") },
                 singleLine = true,
+                colors = outlineTextFieldColors(),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth(),
             )

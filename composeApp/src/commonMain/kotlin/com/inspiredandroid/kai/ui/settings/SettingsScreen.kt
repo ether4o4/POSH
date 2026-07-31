@@ -126,7 +126,6 @@ import com.inspiredandroid.kai.inference.LocalModel
 import com.inspiredandroid.kai.inference.calculateDevicePerformance
 import com.inspiredandroid.kai.inference.estimateGpuMemoryMb
 import com.inspiredandroid.kai.mcp.PopularMcpServer
-import com.inspiredandroid.kai.network.dtos.SponsorsResponseDto
 import com.inspiredandroid.kai.network.tools.ToolInfo
 import com.inspiredandroid.kai.saveFileToDevice
 import com.inspiredandroid.kai.ui.KaiClearableTextField
@@ -174,7 +173,6 @@ import kai.composeapp.generated.resources.settings_business_partnerships_descrip
 import kai.composeapp.generated.resources.settings_contact_sponsorship
 import kai.composeapp.generated.resources.settings_daemon_mode
 import kai.composeapp.generated.resources.settings_daemon_mode_description
-import kai.composeapp.generated.resources.settings_documentation
 import kai.composeapp.generated.resources.settings_dynamic_ui
 import kai.composeapp.generated.resources.settings_dynamic_ui_description
 import kai.composeapp.generated.resources.settings_export
@@ -210,14 +208,11 @@ import kai.composeapp.generated.resources.settings_memories_edit_cancel
 import kai.composeapp.generated.resources.settings_memories_edit_save
 import kai.composeapp.generated.resources.settings_memories_edit_title
 import kai.composeapp.generated.resources.settings_memories_show_all
-import kai.composeapp.generated.resources.settings_open_github_issue
 import kai.composeapp.generated.resources.settings_openai_compatible_or_other_service
 import kai.composeapp.generated.resources.settings_openai_compatible_providers
 import kai.composeapp.generated.resources.settings_openai_compatible_setup_ollama
 import kai.composeapp.generated.resources.settings_remove_service
 import kai.composeapp.generated.resources.settings_reorder_content_description
-import kai.composeapp.generated.resources.settings_request_integration_description
-import kai.composeapp.generated.resources.settings_request_integration_title
 import kai.composeapp.generated.resources.settings_sandbox_cancel
 import kai.composeapp.generated.resources.settings_sandbox_description
 import kai.composeapp.generated.resources.settings_sandbox_disk_usage
@@ -248,7 +243,6 @@ import kai.composeapp.generated.resources.settings_status_error_quota_exhausted
 import kai.composeapp.generated.resources.settings_status_error_rate_limited
 import kai.composeapp.generated.resources.settings_tab_agent
 import kai.composeapp.generated.resources.settings_tab_general
-import kai.composeapp.generated.resources.settings_tab_integrations
 import kai.composeapp.generated.resources.settings_tab_sandbox
 import kai.composeapp.generated.resources.settings_tab_services
 import kai.composeapp.generated.resources.settings_tab_tools
@@ -465,10 +459,6 @@ fun SettingsScreenContent(
                                 ServicesContent(uiState = filteredUiState, actions = actions)
                             }
 
-                            SettingsTab.Integrations -> {
-                                IntegrationsContent()
-                            }
-
                             SettingsTab.Tools -> {
                                 ToolsContent(
                                     tools = filteredUiState.tools,
@@ -588,7 +578,6 @@ private fun SettingsTabSelector(
                             SettingsTab.Services -> stringResource(Res.string.settings_tab_services)
                             SettingsTab.Tools -> stringResource(Res.string.settings_tab_tools)
                             SettingsTab.Sandbox -> stringResource(Res.string.settings_tab_sandbox)
-                            SettingsTab.Integrations -> stringResource(Res.string.settings_tab_integrations)
                         },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         color = MaterialTheme.colorScheme.primary,
@@ -631,23 +620,12 @@ private fun BottomInfo() {
                 .clip(CircleShape)
                 .size(24.dp)
                 .clickable(onClick = {
-                    uriHandler.openUri("https://github.com/SimonSchubert/Kai")
+                    uriHandler.openUri("https://github.com/ether4o4/POSH")
                 })
                 .handCursor(),
             painter = painterResource(Res.drawable.github_mark),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onBackground,
-        )
-
-        Spacer(Modifier.width(12.dp))
-
-        Text(
-            text = stringResource(Res.string.settings_documentation),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .clickable { uriHandler.openUri("https://kai9000.com/docs/") }
-                .handCursor(),
         )
     }
 

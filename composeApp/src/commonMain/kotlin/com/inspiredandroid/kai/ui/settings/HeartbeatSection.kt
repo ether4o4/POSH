@@ -347,10 +347,7 @@ internal fun HeartbeatSection(
                 minLines = 8,
                 maxLines = 8,
                 label = {
-                    Text(
-                        stringResource(Res.string.settings_heartbeat_prompt_label),
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
+                    Text(stringResource(Res.string.settings_heartbeat_prompt_label))
                 },
             )
 

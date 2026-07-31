@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.inspiredandroid.kai.ui.handCursor
+import com.inspiredandroid.kai.ui.textBoxBackground
+import com.inspiredandroid.kai.ui.textBoxCyan
 
 @Composable
 fun KaiSearchField(
@@ -50,8 +52,17 @@ fun KaiSearchField(
             focusedBorderColor = Color.Transparent,
             unfocusedBorderColor = Color.Transparent,
             disabledBorderColor = Color.Transparent,
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            focusedContainerColor = textBoxBackground,
+            unfocusedContainerColor = textBoxBackground,
+            focusedTextColor = textBoxCyan,
+            unfocusedTextColor = textBoxCyan,
+            cursorColor = textBoxCyan,
+            focusedPlaceholderColor = textBoxCyan.copy(alpha = 0.45f),
+            unfocusedPlaceholderColor = textBoxCyan.copy(alpha = 0.45f),
+            focusedLeadingIconColor = textBoxCyan,
+            unfocusedLeadingIconColor = textBoxCyan.copy(alpha = 0.7f),
+            focusedTrailingIconColor = textBoxCyan,
+            unfocusedTrailingIconColor = textBoxCyan.copy(alpha = 0.7f),
         ),
     )
 }
