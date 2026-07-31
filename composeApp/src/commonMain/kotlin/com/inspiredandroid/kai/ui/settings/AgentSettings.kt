@@ -344,10 +344,7 @@ private fun SoulEditor(
             minLines = 8,
             maxLines = 8,
             label = {
-                Text(
-                    stringResource(Res.string.settings_soul),
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
+                Text(stringResource(Res.string.settings_soul))
             },
         )
 

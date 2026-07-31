@@ -78,10 +78,7 @@ internal fun ModelSelection(
                 onValueChange = {},
                 readOnly = true,
                 label = {
-                    Text(
-                        stringResource(Res.string.settings_model_label),
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
+                    Text(stringResource(Res.string.settings_model_label))
                 },
                 trailingIcon = {
                     Icon(

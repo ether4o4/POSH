@@ -1,6 +1,6 @@
 # Splinterlands Auto-Battle
 
-**Last verified:** 2026-07-18
+**Last verified:** 2026-07-31
 
 ## Overview
 
@@ -10,7 +10,9 @@ The entire Splinterlands integration has a master enable/disable toggle in the s
 
 ## Configuration
 
-Users configure the feature in **Settings > Integrations > Splinterlands**:
+> **Note:** the Integrations settings tab was removed from POSH, so this feature currently has **no settings UI entry point**. The engine, stored accounts, and settings described below remain in the codebase, but they cannot be reached or changed from the app until a new entry point is added.
+
+The settings described here were previously configured in **Settings > Integrations > Splinterlands**:
 
 Multiple accounts can be added, each with independent battle controls. Settings:
 
@@ -120,4 +122,3 @@ Recent Battles log shows up to 500 entries (5 visible by default, expandable): V
 | `ui/settings/SplinterlandsUiState.kt` | `SplinterlandsUiState`, `SplinterlandsAccountUiState`, `SplinterlandsAddStatus` |
 | `ui/settings/SplinterlandsViewModel.kt` | Wires Splinterlands callbacks, builds account states from battle runner |
 | `ui/settings/SplinterlandsComposables.kt` | `SplinterlandsServiceList`, `SplinterlandsAccountRow` with per-service battle status |
-| `ui/settings/SettingsScreen.kt` | `SplinterlandsSection` call site in `IntegrationsContent` |

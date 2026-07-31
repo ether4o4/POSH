@@ -35,7 +35,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inspiredandroid.kai.SandboxFileEntry
 import com.inspiredandroid.kai.formatFileSize
 import com.inspiredandroid.kai.ui.handCursor
+import com.inspiredandroid.kai.ui.outlineTextFieldColors
 import com.inspiredandroid.kai.ui.kaiAdaptiveCardBorder
 import com.inspiredandroid.kai.ui.kaiAdaptiveCardColors
 import kai.composeapp.generated.resources.Res
@@ -435,10 +435,7 @@ private fun EditorBody(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 textStyle = TextStyle(fontFamily = FontFamily.Monospace),
                 shape = RoundedCornerShape(8.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
+                colors = outlineTextFieldColors(),
             )
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
@@ -508,6 +505,7 @@ private fun RenameDialog(
                 onValueChange = onValueChange,
                 singleLine = true,
                 label = { Text(stringResource(Res.string.sandbox_files_rename_label)) },
+                colors = outlineTextFieldColors(),
                 isError = state.error != null,
                 supportingText = state.error?.let { res -> { Text(stringResource(res)) } },
                 modifier = Modifier.fillMaxWidth(),

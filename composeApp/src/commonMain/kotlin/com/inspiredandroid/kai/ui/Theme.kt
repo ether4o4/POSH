@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.CardColors
@@ -134,8 +135,31 @@ val LightColorScheme = lightColorScheme(
     outline = Color(0xFFBBBBBB),
 )
 
+// POSH text boxes: black container with cyan text, in both light and dark themes.
+val textBoxBackground = Color(0xFF000000)
+val textBoxCyan = Color(0xFF00E5FF)
+
 @Composable
-fun outlineTextFieldColors() = OutlinedTextFieldDefaults.colors()
+fun outlineTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = textBoxCyan,
+    unfocusedTextColor = textBoxCyan,
+    disabledTextColor = textBoxCyan.copy(alpha = 0.5f),
+    cursorColor = textBoxCyan,
+    focusedContainerColor = textBoxBackground,
+    unfocusedContainerColor = textBoxBackground,
+    disabledContainerColor = textBoxBackground,
+    focusedBorderColor = textBoxCyan,
+    unfocusedBorderColor = Color(0xFF444444),
+    focusedLabelColor = textBoxCyan,
+    unfocusedLabelColor = textBoxCyan.copy(alpha = 0.7f),
+    disabledLabelColor = textBoxCyan.copy(alpha = 0.4f),
+    focusedPlaceholderColor = textBoxCyan.copy(alpha = 0.45f),
+    unfocusedPlaceholderColor = textBoxCyan.copy(alpha = 0.45f),
+    selectionColors = TextSelectionColors(
+        handleColor = textBoxCyan,
+        backgroundColor = textBoxCyan.copy(alpha = 0.35f),
+    ),
+)
 
 @Composable
 fun KaiOutlinedTextField(

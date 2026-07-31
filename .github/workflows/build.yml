@@ -6,8 +6,12 @@ name: Build APK
 # this repo so testers get a stable direct APK URL.
 #
 # Uses the `fossDebug` variant (open-source flavor, debug build type). Debug builds
-# are signed with Android's auto-generated debug keystore, so no signing secrets are
-# required.
+# are signed with the checked-in `androidApp/preview-debug.keystore` (standard
+# Android debug credentials, not a secret), so no signing secrets are required and
+# every CI build shares one signing key. Without that stable key, each ephemeral
+# runner would auto-generate a fresh debug keystore, and Android refuses to install
+# an APK over an existing app when the signing key differs — so preview-over-preview
+# updates would silently fail.
 
 on:
   # Push-only (all branches). A PR branch push already fires this, and the run shows
@@ -140,6 +144,11 @@ jobs:
           - Rolling latest: ${GITHUB_SERVER_URL}/${RELEASES_REPO}/releases/download/${{ steps.preview.outputs.latest_tag }}/${PREVIEW_APK_NAME}
 
           Sideloadable preview build, not a production release.
+
+          If you have a preview from before 2026-07-31 installed, uninstall it once
+          before installing this one — earlier previews were each signed with a
+          throwaway key, so they can't be updated in place. From this build on,
+          previews share a stable signing key and update over each other normally.
           EOF
 
       - name: Publish dated preview pre-release

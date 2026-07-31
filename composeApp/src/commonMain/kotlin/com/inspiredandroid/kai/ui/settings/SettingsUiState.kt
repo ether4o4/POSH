@@ -13,7 +13,6 @@ import com.inspiredandroid.kai.data.ThemeMode
 import com.inspiredandroid.kai.inference.DownloadError
 import com.inspiredandroid.kai.inference.LocalModel
 import com.inspiredandroid.kai.inference.ModelImportError
-import com.inspiredandroid.kai.network.dtos.SponsorsResponseDto
 import com.inspiredandroid.kai.network.tools.ToolInfo
 import com.inspiredandroid.kai.skills.RegistrySkillEntry
 import com.inspiredandroid.kai.skills.SkillManifest
@@ -54,7 +53,6 @@ enum class SettingsTab {
     Services,
     Tools,
     Sandbox,
-    Integrations,
 }
 
 @Immutable
@@ -126,8 +124,6 @@ data class SettingsUiState(
     val localImportProgress: Float? = null,
     val localImportError: ModelImportError? = null,
     val modelContextTokens: ImmutableMap<String, Int> = persistentMapOf(),
-    val currentSponsors: ImmutableList<SponsorsResponseDto.Sponsor> = persistentListOf(),
-    val pastSponsors: ImmutableList<SponsorsResponseDto.Sponsor> = persistentListOf(),
     val pendingDeletion: PendingDeletion? = null,
 )
 

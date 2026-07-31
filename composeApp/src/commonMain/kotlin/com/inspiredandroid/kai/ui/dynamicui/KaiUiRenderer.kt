@@ -215,6 +215,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inspiredandroid.kai.ui.KaiOutlinedTextField
+import com.inspiredandroid.kai.ui.outlineTextFieldColors
 import com.inspiredandroid.kai.ui.components.KaiChip
 import com.inspiredandroid.kai.ui.handCursor
 import com.inspiredandroid.kai.ui.kaiAdaptiveCardBorder
@@ -664,6 +665,7 @@ private fun RenderSelect(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             enabled = isInteractive,
             shape = RoundedCornerShape(12.dp),
+            colors = outlineTextFieldColors(),
             modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).handCursor(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
