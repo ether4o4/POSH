@@ -1,0 +1,104 @@
+name: Prebuilt llama-server
+
+# Cross-builds a static aarch64-linux-musl `llama-server` (llama.cpp) and publishes
+# it to the rolling `llama-server-prebuilt-latest` pre-release. The on-device GGUF
+# engine (`composeApp/.../assets/sandbox/morsllm.sh`, subcommand `provision`) tries
+# to download this binary first, turning a 10-30 min in-proot compile on the user's
+# phone into a <1 min download. If this release is missing or unreachable, the script
+# transparently falls back to compiling from source in the sandbox — so the app keeps
+# working whether or not this workflow has been run.
+#
+# The binary is built inside a *native* aarch64 Alpine container (through QEMU binfmt)
+# so it links against musl exactly like the app's Alpine 3.22 sandbox. Emulated
+# compilation is slow (can take a couple of hours) — this is a manual / occasional
+# job, not part of the per-push build.
+
+on:
+  workflow_dispatch:
+    inputs:
+      llama_ref:
+        description: 'llama.cpp git ref to build (branch, tag, or commit). Defaults to master.'
+        required: false
+        type: string
+  push:
+    paths:
+      # Re-publish when the build recipe itself changes.
+      - '.github/workflows/prebuilt-llama-server.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prebuilt-llama-server
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build aarch64-musl llama-server
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Set up QEMU (arm64 binfmt)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build llama-server in aarch64 Alpine
+        env:
+          LLAMA_REF: ${{ github.event.inputs.llama_ref || 'master' }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          docker run --rm --platform linux/arm64 \
+            -e LLAMA_REF="$LLAMA_REF" \
+            -v "$PWD/out:/out" \
+            alpine:3.22 sh -euxc '
+              apk add --no-cache build-base cmake git curl linux-headers musl-dev
+              git clone --depth=1 --branch "$LLAMA_REF" https://github.com/ggerganov/llama.cpp /src \
+                || git clone --depth=1 https://github.com/ggerganov/llama.cpp /src
+              cd /src
+              # CPU-only, static (matches the in-sandbox build), and a portable
+              # armv8-a baseline: GGML_NATIVE=OFF so the binary runs on every arm64
+              # phone rather than baking in the CI CPUs feature set.
+              cmake -S . -B build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DLLAMA_BUILD_TESTS=OFF \
+                -DLLAMA_BUILD_EXAMPLES=OFF \
+                -DLLAMA_BUILD_SERVER=ON \
+                -DGGML_OPENMP=OFF \
+                -DGGML_NATIVE=OFF \
+                -DBUILD_SHARED_LIBS=OFF
+              cmake --build build --target llama-server -j "$(nproc)"
+              BIN=""
+              for c in build/bin/llama-server build/server/llama-server build/llama-server; do
+                [ -f "$c" ] && BIN="$c" && break
+              done
+              [ -n "$BIN" ] || { echo "llama-server artifact not found"; exit 1; }
+              strip "$BIN" || true
+              cp "$BIN" /out/llama-server-aarch64-musl
+              chmod 755 /out/llama-server-aarch64-musl
+              file /out/llama-server-aarch64-musl || true
+            '
+
+      - name: Verify artifact
+        run: |
+          set -euo pipefail
+          test -s out/llama-server-aarch64-musl
+          # Confirm it is an aarch64 ELF (magic 0x7f ELF, machine 0xB7 = AArch64).
+          head -c 20 out/llama-server-aarch64-musl | od -An -tx1 | tr -s ' '
+          ls -l out/llama-server-aarch64-musl
+
+      - name: Publish prebuilt pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: llama-server-prebuilt-latest
+          name: Prebuilt llama-server (aarch64-musl)
+          body: |
+            Static `aarch64-linux-musl` build of llama.cpp's `llama-server`, consumed
+            by the on-device GGUF engine's `provision` fast path. Rebuilt from
+            `${{ github.event.inputs.llama_ref || 'master' }}`.
+          prerelease: true
+          make_latest: false
+          files: out/llama-server-aarch64-musl
+          fail_on_unmatched_files: true

@@ -1,10 +1,10 @@
 # Appearance
 
-**Last verified:** 2026-07-31
+**Last verified:** 2026-08-04
 
-POSH is **black-screen everywhere**: a pure-black background with white text, red accents, and red outlines. Every theme-picker mode resolves to this same palette — "Light" is not a white theme — and wallpaper-derived Material You dynamic colors are disabled on Android so the brand scheme always wins. Because the background is pure black, cards render as transparent panels with red outline borders rather than gray fills. The app icon and in-app logo are a white shell prompt (">_") on a red rounded square.
+POSH is **deep-teal everywhere**: a dark "abyssal teal" ink background (a near-black teal) with white text, red accents, and red outlines. Teal is the opposite of red on the color wheel, so the red accents read hotter and pop harder than they did on a flat black screen, and the tint quietly rhymes with the cyan text-field accent — while staying dark enough that white body text stays crisp. Every theme-picker mode resolves to this same palette — "Light" is not a white theme — and wallpaper-derived Material You dynamic colors are disabled on Android so the brand scheme always wins. Because the background is a single brand color (like pure black before it), cards render as transparent panels with red outline borders rather than gray fills. The app icon and in-app logo are a white shell prompt (">_") on a red rounded square.
 
-The four-way theme picker (**System**, **Light**, **Dark**, **OLED**) still exists in Settings but is currently cosmetic, since all modes map to the black scheme.
+The four-way theme picker (**System**, **Light**, **Dark**, **OLED**) still exists in Settings. **OLED** flattens the background to pure black for AMOLED power saving; the other three modes all resolve to the deep-teal brand scheme.
 
 ## Text boxes
 
@@ -12,8 +12,8 @@ All text input fields — the chat input, API-key and base-URL fields, search fi
 
 ## Behavior
 
-- All picker modes resolve to the black/red/white palette: background and surfaces pure black, text white, primary accent red, outlines red (bright red focused, dark red for card borders).
-- Cards, service rows, and hub tiles render transparent with a red/white hairline border against the black background.
+- The three non-OLED picker modes resolve to the teal/red/white palette: background and surfaces the deep-teal brand ink, text white, primary accent red, outlines red (bright red focused, dark red for card borders). OLED flattens background and surfaces to pure black.
+- Cards, service rows, and hub tiles render transparent with a red/white hairline border against the brand background (teal, or pure black under OLED).
 - **Reactivity**: changing the theme picker recomposes immediately without an app restart (though visually all modes currently match).
 
 ## Component guidance
@@ -26,7 +26,7 @@ New text inputs should use the shared text-field components (or the shared text-
 
 | File | Purpose |
 |------|---------|
-| `composeApp/.../ui/Theme.kt` | Light/dark color schemes, red accent constants, black/cyan text-field colors, pure-black OLED override |
+| `composeApp/.../ui/Theme.kt` | Light/dark color schemes, `brandBackground` deep-teal constant, red accent constants, black/cyan text-field colors, pure-black OLED override |
 | `composeApp/.../ui/components/PoshLogo.kt` | The ">_" logo mark used in the chat empty state and interactive-mode welcome |
 | `composeApp/.../data/AppSettings.kt` | Theme mode enum and persistent setting, with one-time migration from the legacy OLED boolean |
 | `composeApp/.../App.kt` | Shared app content — observes the theme setting and picks the light, dark, or black-flattened dark scheme |
