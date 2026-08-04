@@ -14,16 +14,15 @@ name: Prebuilt llama-server
 # job, not part of the per-push build.
 
 on:
+  # Manual only: this is a slow, occasional job (emulated aarch64 compile can take
+  # a couple of hours) that publishes a release, so it should be run deliberately
+  # by a maintainer — never automatically on a branch push or PR.
   workflow_dispatch:
     inputs:
       llama_ref:
         description: 'llama.cpp git ref to build (branch, tag, or commit). Defaults to master.'
         required: false
         type: string
-  push:
-    paths:
-      # Re-publish when the build recipe itself changes.
-      - '.github/workflows/prebuilt-llama-server.yml'
 
 permissions:
   contents: write
