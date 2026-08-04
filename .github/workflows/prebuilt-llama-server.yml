@@ -36,6 +36,12 @@ jobs:
     name: Build aarch64-musl llama-server
     runs-on: ubuntu-latest
     timeout-minutes: 300
+    env:
+      # Optional: when set, the freshly-built binary is also mirrored to the
+      # public Hugging Face repo below — the host the app actually downloads
+      # from, since this repo is private and its release assets 404 anonymously.
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_REPO: Ether4o4/posh-llama-server
 
     steps:
       - name: Set up QEMU (arm64 binfmt)
@@ -101,3 +107,32 @@ jobs:
           make_latest: false
           files: out/llama-server-aarch64-musl
           fail_on_unmatched_files: true
+
+      # The GitHub release above is only reachable by authenticated users while
+      # this repo is private. Mirror the binary to the public HF model repo so
+      # the app's unauthenticated curl can fetch it.
+      - name: Mirror to Hugging Face (public host for the app)
+        if: env.HF_TOKEN != ''
+        run: |
+          set -euo pipefail
+          python3 -m pip install -q "huggingface_hub>=0.23"
+          python3 - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          repo = os.environ["HF_REPO"]
+          api.create_repo(repo_id=repo, repo_type="model", exist_ok=True, private=False)
+          api.upload_file(
+              path_or_fileobj="out/llama-server-aarch64-musl",
+              path_in_repo="llama-server-aarch64-musl",
+              repo_id=repo,
+              repo_type="model",
+          )
+          print(f"mirrored: https://huggingface.co/{repo}/resolve/main/llama-server-aarch64-musl")
+          EOF
+
+      - name: Warn if HF_TOKEN is missing
+        if: env.HF_TOKEN == ''
+        run: |
+          echo "::warning::HF_TOKEN secret not set — the binary was published to the GitHub release only, which is NOT downloadable by the app while this repo is private. Add an HF_TOKEN repository secret and run the 'Publish llama-server to Hugging Face' workflow."

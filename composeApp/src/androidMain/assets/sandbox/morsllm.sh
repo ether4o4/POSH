@@ -163,13 +163,18 @@ cmd_provision() {
     # release asset. Falls through to source compile if download or exec
     # check fails (network down, release not built yet, arch mismatch).
     if [ ! -x "$LLAMA_SERVER" ]; then
-        # Published by the "Prebuilt llama-server" GitHub Actions workflow in this
-        # repo: a static aarch64-linux-musl llama-server, cross-built in CI so the
+        # A static aarch64-linux-musl llama-server, cross-built in CI so the
         # phone never has to. Same binary we'd compile in-sandbox, minus the
-        # 10-30 min proot compile. Try a couple of candidate hosts in order and
-        # fall through to the source compile if none is reachable/runnable.
+        # 10-30 min proot compile. The canonical public host is a Hugging Face
+        # model repo (mirrored there by the "Publish llama-server to Hugging
+        # Face" workflow) because the GitHub repo is private — its release
+        # assets 404 for the unauthenticated curl running in this sandbox. The
+        # GitHub URLs stay as fallbacks in case the repo ever goes public or a
+        # fork hosts its own release. Falls through to the source compile if
+        # no host is reachable/runnable.
         mkdir -p "$BIN_DIR"
         for prebuilt_url in \
+            "https://huggingface.co/Ether4o4/posh-llama-server/resolve/main/llama-server-aarch64-musl" \
             "https://github.com/ether4o4/POSH/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl" \
             "https://github.com/ether4o4/posh/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl"; do
             log "provision: trying pre-built binary at $prebuilt_url"
