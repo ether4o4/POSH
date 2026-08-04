@@ -36,12 +36,6 @@ jobs:
     name: Build aarch64-musl llama-server
     runs-on: ubuntu-latest
     timeout-minutes: 300
-    env:
-      # Optional: when set, the freshly-built binary is also mirrored to the
-      # public Hugging Face repo below — the host the app actually downloads
-      # from, since this repo is private and its release assets 404 anonymously.
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      HF_REPO: Ether4o4/posh-llama-server
 
     steps:
       - name: Set up QEMU (arm64 binfmt)
@@ -110,9 +104,13 @@ jobs:
 
       # The GitHub release above is only reachable by authenticated users while
       # this repo is private. Mirror the binary to the public HF model repo so
-      # the app's unauthenticated curl can fetch it.
+      # the app's unauthenticated curl can fetch it. The secret is scoped to
+      # this step only (not job-level env) so third-party actions never see it.
       - name: Mirror to Hugging Face (public host for the app)
-        if: env.HF_TOKEN != ''
+        if: secrets.HF_TOKEN != ''
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: Ether4o4/posh-llama-server
         run: |
           set -euo pipefail
           python3 -m pip install -q "huggingface_hub>=0.23"
@@ -133,6 +131,6 @@ jobs:
           EOF
 
       - name: Warn if HF_TOKEN is missing
-        if: env.HF_TOKEN == ''
+        if: secrets.HF_TOKEN == ''
         run: |
           echo "::warning::HF_TOKEN secret not set — the binary was published to the GitHub release only, which is NOT downloadable by the app while this repo is private. Add an HF_TOKEN repository secret and run the 'Publish llama-server to Hugging Face' workflow."

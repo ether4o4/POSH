@@ -156,12 +156,11 @@ cmd_provision() {
     provision_emitted=0
     trap '[ "${provision_emitted:-0}" = "1" ] || emit "{\"ok\":false,\"error\":\"provision_crashed\",\"detail\":\"line ${LINENO}\"}"' EXIT
 
-    # Fast path: try downloading the pre-built llama-server binary from our
-    # release artifact. Cuts provision time from 10-30 min compile-in-proot
-    # to <1 minute download + chmod. Same aarch64-linux-musl static build
-    # we'd produce in-sandbox, just cross-compiled in CI and published as a
-    # release asset. Falls through to source compile if download or exec
-    # check fails (network down, release not built yet, arch mismatch).
+    # Fast path: try downloading the pre-built llama-server binary from the
+    # public Hugging Face mirror (GitHub release URLs as fallbacks). Cuts
+    # provision time from 10-30 min compile-in-proot to <1 minute download +
+    # chmod. Falls through to source compile if download or exec check fails
+    # (network down, mirror not published yet, arch mismatch).
     if [ ! -x "$LLAMA_SERVER" ]; then
         # A static aarch64-linux-musl llama-server, cross-built in CI so the
         # phone never has to. Same binary we'd compile in-sandbox, minus the
@@ -178,7 +177,14 @@ cmd_provision() {
             "https://github.com/ether4o4/POSH/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl" \
             "https://github.com/ether4o4/posh/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl"; do
             log "provision: trying pre-built binary at $prebuilt_url"
-            if curl -fsSL --max-time 120 -o "$LLAMA_SERVER.tmp" "$prebuilt_url" 2>/dev/null \
+            # Stall detection instead of a hard total-time cap: --max-time 120
+            # would abort a healthy-but-slow mobile download of this ~14 MB
+            # binary and silently dump the user into the 10-30 min source
+            # compile. Fail fast on dead hosts (connect timeout) and on
+            # transfers that drop below 1 KB/s for 30s, but let a slow steady
+            # download finish.
+            if curl -fsSL --connect-timeout 15 --speed-limit 1024 --speed-time 30 \
+                -o "$LLAMA_SERVER.tmp" "$prebuilt_url" 2>/dev/null \
                 && [ -s "$LLAMA_SERVER.tmp" ]; then
                 chmod 755 "$LLAMA_SERVER.tmp"
                 if "$LLAMA_SERVER.tmp" --version >/dev/null 2>&1; then
