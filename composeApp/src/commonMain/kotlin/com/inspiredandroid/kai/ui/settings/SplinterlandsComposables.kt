@@ -355,7 +355,7 @@ private fun SplinterlandsModelRankings(modelStats: ImmutableList<ModelStats>) {
 private fun SplinterlandsModelRow(rank: Int, stats: ModelStats) {
     val winPct = (stats.winRate * 100).toInt()
     val barColor = when {
-        winPct >= 60 -> Color(0xFF4CAF50)
+        winPct >= 60 -> Color(0xFFE0191D)
         winPct >= 40 -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.error
     }
@@ -424,7 +424,7 @@ private fun SplinterlandsBattleLogRow(entry: BattleLogEntry) {
                 Text(
                     text = if (entry.won) "Victory" else "Defeat",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (entry.won) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                    color = if (entry.won) Color(0xFFE0191D) else MaterialTheme.colorScheme.error,
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
@@ -902,7 +902,7 @@ private fun SplinterlandsAccountRow(
                                 color = MaterialTheme.colorScheme.primary,
                             )
 
-                            LlmServiceStatus.ValidResponse -> Text("\u2714", style = MaterialTheme.typography.labelSmall, color = Color(0xFF4CAF50))
+                            LlmServiceStatus.ValidResponse -> Text("\u2714", style = MaterialTheme.typography.labelSmall, color = Color(0xFFE0191D))
 
                             LlmServiceStatus.InvalidResponse -> Text("\u2718", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
 

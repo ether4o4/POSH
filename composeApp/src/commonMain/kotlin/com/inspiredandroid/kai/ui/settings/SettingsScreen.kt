@@ -293,8 +293,8 @@ import sh.calvin.reorderable.ReorderableColumn
 import kotlin.math.roundToInt
 import kotlin.time.Instant
 
-internal val StatusColorConnected = Color(0xFF4CAF50)
-internal val StatusColorChecking = Color(0xFFFF9800)
+internal val StatusColorConnected = Color(0xFFE0191D)
+internal val StatusColorChecking = Color(0xFFFF3B30)
 internal val StatusColorError = Color(0xFFF44336)
 internal val StatusColorUnknown = Color(0xFF9E9E9E)
 

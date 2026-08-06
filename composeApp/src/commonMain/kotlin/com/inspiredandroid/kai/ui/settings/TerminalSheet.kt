@@ -103,7 +103,7 @@ private fun terminalColors(darkBackground: Boolean = false): TerminalColors {
             bg = TerminalDarkBg,
             inputBg = Color(0xFF252525),
             text = Color(0xFFD4D4D4),
-            prompt = Color(0xFF6CB6FF),
+            prompt = Color(0xFFFF6E6E),
             error = Color(0xFFF48771),
             dimText = Color(0xFF666666),
         )

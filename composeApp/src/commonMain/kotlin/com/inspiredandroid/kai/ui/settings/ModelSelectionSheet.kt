@@ -294,11 +294,11 @@ private fun ModelCard(model: SettingsModel, isSelected: Boolean, onClick: () -> 
 }
 
 private fun arenaScoreColor(score: Int): Color = when {
-    score >= 1400 -> Color(0xFF2E7D32)
-    score >= 1350 -> Color(0xFF558B2F)
-    score >= 1300 -> Color(0xFF9E9D24)
-    score >= 1250 -> Color(0xFFF9A825)
-    else -> Color(0xFFEF6C00)
+    score >= 1400 -> Color(0xFF7F0000)
+    score >= 1350 -> Color(0xFFA31515)
+    score >= 1300 -> Color(0xFFC62828)
+    score >= 1250 -> Color(0xFFE53935)
+    else -> Color(0xFFFF3B30)
 }
 
 @Composable
@@ -306,7 +306,7 @@ private fun FreeTierBadge(isSelected: Boolean) {
     val background = if (isSelected) {
         MaterialTheme.colorScheme.onPrimaryContainer
     } else {
-        Color(0xFF1B5E20)
+        Color(0xFF7F0000)
     }
     val content = if (isSelected) {
         MaterialTheme.colorScheme.primaryContainer

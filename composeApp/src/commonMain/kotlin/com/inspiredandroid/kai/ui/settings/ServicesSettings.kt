@@ -940,7 +940,7 @@ private fun ConnectionStatusIndicator(status: ConnectionStatus, onOpenAppPermiss
         }
 
         ConnectionStatus.ErrorQuotaExhausted -> {
-            val warningColor = Color(0xFFFF9800)
+            val warningColor = Color(0xFFFF3B30)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
