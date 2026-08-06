@@ -157,7 +157,7 @@ actual fun PlatformGgufModelsCard() {
             }
         } else if (st == null || !st.provisioned) {
             Text(
-                text = "First run compiles llama.cpp inside the sandbox. One-time, and slow on a phone (can take 10–30 min).",
+                text = "Downloads a prebuilt engine (usually under a minute). Compiles from source only if no prebuilt is reachable — that path can take 10–30 min.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

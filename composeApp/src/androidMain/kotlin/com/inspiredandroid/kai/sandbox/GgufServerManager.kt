@@ -10,8 +10,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -290,13 +288,22 @@ class GgufServerManager(
     private fun shellQuote(s: String): String = "'" + s.replace("'", "'\\''") + "'"
 
     init {
-        // Pre-install the script once the sandbox reaches Ready so the user can
-        // also invoke `morsllm` directly from the in-app Terminal without going
-        // through this manager. Pure file write + chmod — building llama-server
-        // is gated behind explicit provision().
+        // Pre-install the script whenever the sandbox reaches Ready so the user
+        // can also invoke `morsllm` directly from the in-app Terminal without
+        // going through this manager. Pure file write + chmod — building
+        // llama-server is gated behind explicit provision(). Observed as a
+        // stream, not a one-shot: a sandbox reset+reinstall wipes the rootfs
+        // (and the installed script) without restarting the app process, so
+        // the installed flag must drop when readiness drops or every engine op
+        // after a reset fails until the app is killed.
         scope.launch {
-            sandbox.status.filter { it.ready }.first()
-            ensureScriptInstalled()
+            sandbox.status.collect { status ->
+                if (status.ready) {
+                    ensureScriptInstalled()
+                } else {
+                    scriptInstalled = false
+                }
+            }
         }
     }
 

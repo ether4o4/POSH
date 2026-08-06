@@ -11,11 +11,13 @@ set -o pipefail
 
 ROOT="${MORSLLM_ROOT:-/root/.morsvitaest/llm}"
 # The binary must live on the internal-storage rootfs, NOT under /root:
-# /root is bind-mounted app-external storage, which Android mounts noexec —
-# anything placed there fails with "Permission denied" at launch regardless
-# of its mode bits (the kernel refuses to map it executable). Models and
-# logs are plain data reads, which noexec allows, so they stay under /root
-# where the user can browse them from the Files tab.
+# /root is (in the normal configuration) bind-mounted app-external storage,
+# which Android mounts noexec — anything placed there fails with "Permission
+# denied" at launch regardless of its mode bits (the kernel refuses to map
+# it executable). Models and logs are plain data reads, which noexec allows,
+# so they stay under /root where the user can browse them from the Files
+# tab. Tradeoff: /opt is part of the rootfs, so a sandbox reset wipes the
+# binary (provision just re-downloads ~14 MB) while models in /root survive.
 BIN_DIR="${MORSLLM_BIN_DIR:-/opt/morsllm/bin}"
 MODELS_DIR="$ROOT/models"
 BUILD_DIR="$ROOT/build"
@@ -166,16 +168,26 @@ cmd_provision() {
     # noexec (see BIN_DIR comment above), so a fully-downloaded, fully-valid
     # llama-server could sit there and still refuse to launch. If one is
     # stranded at the legacy path, copy it into the exec-capable location and
-    # reuse it instead of re-downloading.
-    legacy_bin="/root/.morsvitaest/llm/bin/llama-server"
-    if [ ! -x "$LLAMA_SERVER" ] && [ -s "$legacy_bin" ]; then
+    # reuse it instead of re-downloading. Same-file guard: with MORSLLM_BIN_DIR
+    # pointed at the legacy dir the two paths alias, and "migrating" would
+    # validate the binary then delete it.
+    legacy_bin="$ROOT/bin/llama-server"
+    if [ "$legacy_bin" != "$LLAMA_SERVER" ] && [ ! "$legacy_bin" -ef "$LLAMA_SERVER" ] \
+        && [ ! -x "$LLAMA_SERVER" ] && [ -s "$legacy_bin" ]; then
+        mkdir -p "$BIN_DIR"
         cp "$legacy_bin" "$LLAMA_SERVER" 2>/dev/null || true
         chmod 755 "$LLAMA_SERVER" 2>/dev/null || true
         if "$LLAMA_SERVER" --version >/dev/null 2>&1; then
             log "provision: migrated legacy binary from $legacy_bin"
             rm -f "$legacy_bin"
+            emit "{\"ok\":true,\"migrated\":true,\"path\":\"$LLAMA_SERVER\"}"
+            provision_emitted=1
+            return 0
         else
-            rm -f "$LLAMA_SERVER"
+            # The new location is exec-capable, so a failed exec check means
+            # the file itself is bad — drop both copies or every future
+            # provision re-attempts this dead migration.
+            rm -f "$LLAMA_SERVER" "$legacy_bin"
         fi
     fi
 
@@ -226,6 +238,19 @@ cmd_provision() {
             fi
         done
         log "provision: no pre-built binary available, falling back to source compile"
+    fi
+
+    # Short-circuit BEFORE the apk toolchain section: a valid binary already
+    # in place (pre-seeded manually, migrated above with the emit skipped, or
+    # left from a prior provision) needs no compilers. Without this, a phone
+    # provisioned via the prebuilt path would pointlessly attempt a
+    # multi-hundred-MB build-base install — and report failure if offline —
+    # despite having a perfectly working engine.
+    if [ -x "$LLAMA_SERVER" ]; then
+        log "provision: llama-server already present at $LLAMA_SERVER"
+        emit "{\"ok\":true,\"already_built\":true,\"path\":\"$LLAMA_SERVER\"}"
+        provision_emitted=1
+        return 0
     fi
 
     apk_log="$LOGS_DIR/apk.log"
@@ -336,13 +361,6 @@ cmd_provision() {
             return 1
         fi
         log "provision: tar fallback succeeded; g++ now functional"
-    fi
-
-    if [ -x "$LLAMA_SERVER" ]; then
-        log "provision: llama-server already built at $LLAMA_SERVER"
-        emit "{\"ok\":true,\"already_built\":true,\"path\":\"$LLAMA_SERVER\"}"
-        provision_emitted=1
-        return 0
     fi
 
     local src="$BUILD_DIR/llama.cpp"
