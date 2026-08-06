@@ -118,6 +118,16 @@ internal val LOCAL_TOOL_ALLOWLIST = setOf(
     "memory_forget",
     "memory_reinforce",
     "execute_shell_command",
+    // Device-control tools kept simple enough (a few int/string params) for the
+    // on-device model's strict function-call parser. Screenshot and long-press are
+    // remote-only — an image path is of little use to a text-only local model, and
+    // trimming the set keeps the small-model tool list manageable.
+    "device_read_screen",
+    "device_tap",
+    "device_swipe",
+    "device_type",
+    "device_press_key",
+    "device_open_app",
 )
 
 private data class LoopChatResult(

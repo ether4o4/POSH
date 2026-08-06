@@ -479,6 +479,16 @@ class AppSettings(internal val settings: Settings) {
         settings.putString(KEY_NOTIFICATIONS_PENDING, json)
     }
 
+    // Device control (FOSS-only, Android-only). Master toggle for the accessibility-based
+    // screen-read / tap / type / screenshot tools. Off by default — it's a powerful
+    // capability the user opts into, and it additionally requires switching POSH on under
+    // Android Accessibility settings.
+    fun isDeviceControlEnabled(): Boolean = settings.getBoolean(KEY_DEVICE_CONTROL_ENABLED, false)
+
+    fun setDeviceControlEnabled(enabled: Boolean) {
+        settings.putBoolean(KEY_DEVICE_CONTROL_ENABLED, enabled)
+    }
+
     fun getNotificationsStoreJson(): String = settings.getString(KEY_NOTIFICATIONS_STORE, "")
 
     fun setNotificationsStoreJson(json: String) {
@@ -581,6 +591,8 @@ class AppSettings(internal val settings: Settings) {
         const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
         const val KEY_NOTIFICATIONS_PENDING = "notifications_pending"
         const val KEY_NOTIFICATIONS_STORE = "notifications_store"
+
+        const val KEY_DEVICE_CONTROL_ENABLED = "device_control_enabled"
         const val KEY_NOTIFICATIONS_SYNC_STATE = "notifications_sync_state"
         const val KEY_CONFIGURED_SERVICES = "configured_services"
         const val KEY_FREE_FALLBACK_ENABLED = "free_fallback_enabled"
