@@ -10,7 +10,13 @@ set -eu
 set -o pipefail
 
 ROOT="${MORSLLM_ROOT:-/root/.morsvitaest/llm}"
-BIN_DIR="$ROOT/bin"
+# The binary must live on the internal-storage rootfs, NOT under /root:
+# /root is bind-mounted app-external storage, which Android mounts noexec —
+# anything placed there fails with "Permission denied" at launch regardless
+# of its mode bits (the kernel refuses to map it executable). Models and
+# logs are plain data reads, which noexec allows, so they stay under /root
+# where the user can browse them from the Files tab.
+BIN_DIR="${MORSLLM_BIN_DIR:-/opt/morsllm/bin}"
 MODELS_DIR="$ROOT/models"
 BUILD_DIR="$ROOT/build"
 RUN_DIR="$ROOT/run"
@@ -155,6 +161,23 @@ cmd_provision() {
     # after every explicit emit below; the trap only fires when no emit ran.
     provision_emitted=0
     trap '[ "${provision_emitted:-0}" = "1" ] || emit "{\"ok\":false,\"error\":\"provision_crashed\",\"detail\":\"line ${LINENO}\"}"' EXIT
+
+    # One-time migration: earlier builds kept the binary under /root, which is
+    # noexec (see BIN_DIR comment above), so a fully-downloaded, fully-valid
+    # llama-server could sit there and still refuse to launch. If one is
+    # stranded at the legacy path, copy it into the exec-capable location and
+    # reuse it instead of re-downloading.
+    legacy_bin="/root/.morsvitaest/llm/bin/llama-server"
+    if [ ! -x "$LLAMA_SERVER" ] && [ -s "$legacy_bin" ]; then
+        cp "$legacy_bin" "$LLAMA_SERVER" 2>/dev/null || true
+        chmod 755 "$LLAMA_SERVER" 2>/dev/null || true
+        if "$LLAMA_SERVER" --version >/dev/null 2>&1; then
+            log "provision: migrated legacy binary from $legacy_bin"
+            rm -f "$legacy_bin"
+        else
+            rm -f "$LLAMA_SERVER"
+        fi
+    fi
 
     # Fast path: try downloading the pre-built llama-server binary from the
     # public Hugging Face mirror (GitHub release URLs as fallbacks). Cuts
