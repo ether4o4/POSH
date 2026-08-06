@@ -23,11 +23,6 @@ on:
         required: false
         default: 'Ether4o4/posh-llama-server'
         type: string
-  # One-time bootstrap trigger. Removed after the first successful HF publish.
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/publish-llama-server-hf.yml'
 
 permissions:
   contents: read
