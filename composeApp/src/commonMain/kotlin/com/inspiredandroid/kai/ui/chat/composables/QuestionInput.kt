@@ -61,6 +61,7 @@ import com.inspiredandroid.kai.currentPlatform
 import com.inspiredandroid.kai.data.ServiceEntry
 import com.inspiredandroid.kai.data.imageExtensions
 import com.inspiredandroid.kai.skills.SkillManifest
+import com.inspiredandroid.kai.ui.chat.rememberVoiceInput
 import com.inspiredandroid.kai.ui.gradientBrush
 import com.inspiredandroid.kai.ui.handCursor
 import com.inspiredandroid.kai.ui.outlineTextFieldColors
@@ -73,6 +74,7 @@ import kai.composeapp.generated.resources.Res
 import kai.composeapp.generated.resources.ic_attach
 import kai.composeapp.generated.resources.ic_file
 import kai.composeapp.generated.resources.ic_image
+import kai.composeapp.generated.resources.ic_mic
 import kai.composeapp.generated.resources.ic_stop
 import kai.composeapp.generated.resources.ic_up
 import kai.composeapp.generated.resources.prompt_ask_question
@@ -175,6 +177,15 @@ fun QuestionInput(
             }
         }
 
+        // Hands-free voice input. Null on platforms/devices without speech recognition,
+        // in which case no mic affordance is shown. Recognized speech is appended to the
+        // current text so dictation composes with anything already typed.
+        val voice = rememberVoiceInput { recognized ->
+            val existing = textState.text
+            val combined = if (existing.isBlank()) recognized else "$existing $recognized"
+            onTextStateChange(TextFieldValue(combined, selection = TextRange(combined.length)))
+        }
+
         val allowFileAttachment = supportedFileExtensions.isNotEmpty()
         val filePickerLauncher = if (allowFileAttachment) {
             rememberFilePickerLauncher(
@@ -250,6 +261,13 @@ fun QuestionInput(
                         TrailingIcon(icon = Res.drawable.ic_stop, onClick = cancel, isPulsing = true)
                     } else if (textState.text.isNotBlank()) {
                         TrailingIcon(icon = Res.drawable.ic_up, onClick = { submitQuestion() })
+                    } else if (voice != null) {
+                        // Blank input: offer dictation. Pulses while actively listening.
+                        TrailingIcon(
+                            icon = Res.drawable.ic_mic,
+                            onClick = { voice.toggle() },
+                            isPulsing = voice.isListening,
+                        )
                     }
                 }
             },

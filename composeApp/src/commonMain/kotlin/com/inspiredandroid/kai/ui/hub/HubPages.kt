@@ -52,6 +52,7 @@ import com.inspiredandroid.kai.ui.handCursor
 import com.inspiredandroid.kai.ui.settings.AgentContent
 import com.inspiredandroid.kai.ui.settings.PendingDeletion
 import com.inspiredandroid.kai.ui.settings.PlatformGgufModelsCard
+import com.inspiredandroid.kai.ui.settings.PlatformPluginsCard
 import com.inspiredandroid.kai.ui.settings.SandboxViewModel
 import com.inspiredandroid.kai.ui.settings.SettingsCard
 import com.inspiredandroid.kai.ui.settings.SettingsViewModel
@@ -360,6 +361,15 @@ fun ModelsScreen(onBack: () -> Unit) {
         // Android-only GGUF runtime card: search a HuggingFace repo, download a
         // quant, list downloaded models, serve one locally. No-op elsewhere.
         PlatformGgufModelsCard()
+    }
+}
+
+@Composable
+fun PluginsScreen(onBack: () -> Unit) {
+    HubPageScaffold("PLUGINS", "extend the agent", onBack) {
+        // Android-only: discover FoneClaw-compatible plugin APKs and toggle their
+        // tools into POSH's agent. No-op elsewhere.
+        PlatformPluginsCard()
     }
 }
 
