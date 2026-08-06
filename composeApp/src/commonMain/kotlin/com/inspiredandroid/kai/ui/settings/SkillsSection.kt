@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -39,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.inspiredandroid.kai.skills.RegistrySkillEntry
+import com.inspiredandroid.kai.skills.SkillCategories
 import com.inspiredandroid.kai.skills.SkillManifest
 import com.inspiredandroid.kai.ui.KaiOutlinedTextField
 import com.inspiredandroid.kai.ui.components.VerticalScrollbarForScroll
@@ -83,6 +85,7 @@ internal fun SkillsSection(
     browseFailed: Boolean,
     isSandboxInstalled: Boolean,
     onNavigateToSandbox: () -> Unit,
+    onToggleSkill: (String, Boolean) -> Unit = { _, _ -> },
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -121,12 +124,32 @@ internal fun SkillsSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                for (skill in skills) {
-                    SkillCard(
-                        skill = skill,
-                        onRemove = { onUninstallSkill(skill.id) },
+                // Group by category, with the well-known capability categories first.
+                val grouped = remember(skills) { skills.groupBy { it.category } }
+                val orderedCategories = remember(grouped) {
+                    grouped.keys.sortedWith(
+                        compareBy(
+                            { SkillCategories.order.indexOf(it).let { i -> if (i < 0) Int.MAX_VALUE else i } },
+                            { it },
+                        ),
                     )
-                    Spacer(Modifier.height(8.dp))
+                }
+                for (category in orderedCategories) {
+                    Text(
+                        text = category,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 6.dp),
+                    )
+                    for (skill in grouped.getValue(category)) {
+                        SkillCard(
+                            skill = skill,
+                            onRemove = { onUninstallSkill(skill.id) },
+                            onToggle = { onToggleSkill(skill.id, it) },
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    Spacer(Modifier.height(6.dp))
                 }
             }
 
@@ -160,8 +183,10 @@ internal fun SkillsSection(
 private fun SkillCard(
     skill: SkillManifest,
     onRemove: () -> Unit,
+    onToggle: (Boolean) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val titleColor = if (skill.enabled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant
 
     Card(
         onClick = { expanded = !expanded },
@@ -175,7 +200,7 @@ private fun SkillCard(
                     Text(
                         text = "/${skill.id}",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        color = titleColor,
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     if (skill.isBuiltIn) {
@@ -186,6 +211,12 @@ private fun SkillCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Spacer(Modifier.weight(1f))
+                    Switch(
+                        checked = skill.enabled,
+                        onCheckedChange = onToggle,
+                        modifier = Modifier.handCursor(),
+                    )
                 }
                 Text(
                     text = skill.description,

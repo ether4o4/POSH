@@ -489,6 +489,14 @@ class AppSettings(internal val settings: Settings) {
         settings.putBoolean(KEY_DEVICE_CONTROL_ENABLED, enabled)
     }
 
+    // Per-skill enable/disable. Skills are on by default; disabling one keeps it listed
+    // on the Skills page (toggle off) but removes it from `/`-invocation.
+    fun isSkillEnabled(id: String): Boolean = settings.getBoolean("$KEY_SKILL_ENABLED_PREFIX$id", true)
+
+    fun setSkillEnabled(id: String, enabled: Boolean) {
+        settings.putBoolean("$KEY_SKILL_ENABLED_PREFIX$id", enabled)
+    }
+
     fun getNotificationsStoreJson(): String = settings.getString(KEY_NOTIFICATIONS_STORE, "")
 
     fun setNotificationsStoreJson(json: String) {
@@ -593,6 +601,7 @@ class AppSettings(internal val settings: Settings) {
         const val KEY_NOTIFICATIONS_STORE = "notifications_store"
 
         const val KEY_DEVICE_CONTROL_ENABLED = "device_control_enabled"
+        const val KEY_SKILL_ENABLED_PREFIX = "skill_enabled:"
         const val KEY_NOTIFICATIONS_SYNC_STATE = "notifications_sync_state"
         const val KEY_CONFIGURED_SERVICES = "configured_services"
         const val KEY_FREE_FALLBACK_ENABLED = "free_fallback_enabled"

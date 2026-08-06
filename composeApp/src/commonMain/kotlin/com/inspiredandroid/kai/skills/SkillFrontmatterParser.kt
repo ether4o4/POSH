@@ -16,6 +16,7 @@ object SkillFrontmatterParser {
             val description: String,
             val body: String,
             val dependencies: List<String> = emptyList(),
+            val category: String = SkillCategories.GENERAL,
         ) : Result()
         data class Err(val reason: String) : Result()
     }
@@ -36,6 +37,7 @@ object SkillFrontmatterParser {
         var name: String? = null
         var description: String? = null
         var dependencies: List<String> = emptyList()
+        var category: String = SkillCategories.GENERAL
         for (rawLine in frontmatter.split('\n')) {
             val line = rawLine.trimEnd()
             if (line.isBlank() || line.startsWith("#")) continue
@@ -50,6 +52,8 @@ object SkillFrontmatterParser {
                 // Alpine `apk` package; a `pip:` prefix marks a Python library. POSH installs
                 // these in the sandbox the first time the skill is used.
                 "dependencies" -> dependencies = value.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+                // Optional grouping label for the Skills page. Free text; blank falls back to General.
+                "category" -> if (value.isNotBlank()) category = value
             }
         }
 
@@ -61,7 +65,7 @@ object SkillFrontmatterParser {
         if (desc.isEmpty()) return Result.Err("'description' must be non-empty.")
         if (desc.length > 1024) return Result.Err("'description' must be ≤ 1024 characters.")
 
-        return Result.Ok(id, desc, body, dependencies)
+        return Result.Ok(id, desc, body, dependencies, category)
     }
 
     fun displayName(id: String): String = id.split('-').joinToString(" ") { part ->

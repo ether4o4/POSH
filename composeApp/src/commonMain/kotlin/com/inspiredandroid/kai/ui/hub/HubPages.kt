@@ -274,6 +274,7 @@ fun SkillsScreen(
             SkillsSection(
                 skills = uiState.skills,
                 onUninstallSkill = viewModel.actions.onUninstallSkill,
+                onToggleSkill = viewModel.actions.onToggleSkill,
                 showAddDialog = uiState.showAddSkillDialog,
                 onShowAddDialog = viewModel.actions.onShowAddSkillDialog,
                 onInstallGitHub = viewModel.actions.onInstallGitHubSkill,

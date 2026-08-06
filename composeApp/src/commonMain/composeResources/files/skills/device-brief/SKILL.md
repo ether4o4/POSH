@@ -1,6 +1,7 @@
 ---
 name: device-brief
 description: Prepare a concise daily brief for the user — time, upcoming calendar events, recent notifications, and anything remembered about their day. Use for morning checks, evening recaps, or a quick status summary.
+category: Daily
 ---
 
 # Device Brief

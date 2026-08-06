@@ -1655,6 +1655,10 @@ class RemoteDataRepository(
     // Skills
     override fun getInstalledSkills(): List<SkillManifest> = skillManager.getInstalled()
 
+    override fun setSkillEnabled(id: String, enabled: Boolean) {
+        skillManager.setSkillEnabled(id, enabled)
+    }
+
     override suspend fun uninstallSkill(id: String) {
         skillManager.uninstall(id)
     }

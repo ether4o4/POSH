@@ -335,6 +335,7 @@ class FakeDataRepository : DataRepository {
     var skills: List<com.inspiredandroid.kai.skills.SkillManifest> = emptyList()
 
     override fun getInstalledSkills(): List<com.inspiredandroid.kai.skills.SkillManifest> = skills
+    override fun setSkillEnabled(id: String, enabled: Boolean) {}
     override suspend fun uninstallSkill(id: String) {}
     override suspend fun browseSkillMarketplaces(): Result<List<com.inspiredandroid.kai.skills.RegistrySkillEntry>> = Result.success(emptyList())
     override suspend fun installBrowsedSkill(entry: com.inspiredandroid.kai.skills.RegistrySkillEntry): Result<com.inspiredandroid.kai.skills.SkillManifest> = Result.failure(NotImplementedError())

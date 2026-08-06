@@ -106,7 +106,7 @@ val appModule = module {
         McpServerManager(get())
     }
     single<SkillManager> {
-        SkillManager(get<SandboxController>())
+        SkillManager(get<SandboxController>(), get<AppSettings>())
     }
     single<RemoteDataRepository> {
         RemoteDataRepository(

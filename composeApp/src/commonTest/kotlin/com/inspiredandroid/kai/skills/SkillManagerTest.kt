@@ -1,6 +1,8 @@
 package com.inspiredandroid.kai.skills
 
+import com.inspiredandroid.kai.data.AppSettings
 import com.inspiredandroid.kai.testutil.FakeSandboxController
+import com.russhwolf.settings.MapSettings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -14,7 +16,7 @@ class SkillManagerTest {
 
     private fun skillMd(name: String, desc: String = "desc", body: String = "Do the thing.") = "---\nname: $name\ndescription: $desc\n---\n$body\n"
 
-    private fun manager(sandbox: FakeSandboxController) = SkillManager(sandbox, backgroundDispatcher = UnconfinedTestDispatcher())
+    private fun manager(sandbox: FakeSandboxController) = SkillManager(sandbox, AppSettings(MapSettings()), backgroundDispatcher = UnconfinedTestDispatcher())
 
     @Test
     fun `load reads installed skill folders with their files`() = runTest {

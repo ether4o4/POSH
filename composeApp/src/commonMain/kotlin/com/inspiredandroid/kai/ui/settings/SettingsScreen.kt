@@ -474,6 +474,7 @@ fun SettingsScreenContent(
                                     onAddPopularMcpServer = actions.onAddPopularMcpServer,
                                     skills = filteredUiState.skills,
                                     onUninstallSkill = actions.onUninstallSkill,
+                                    onToggleSkill = actions.onToggleSkill,
                                     showAddSkillDialog = filteredUiState.showAddSkillDialog,
                                     onShowAddSkillDialog = actions.onShowAddSkillDialog,
                                     onInstallGitHubSkill = actions.onInstallGitHubSkill,

@@ -1,6 +1,7 @@
 ---
 name: web-research
 description: Search the web and fetch specific pages to answer current, source-dependent, price-related, or URL-based questions. Use for anything that depends on up-to-date external information.
+category: Research
 ---
 
 # Web Research
