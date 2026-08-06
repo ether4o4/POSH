@@ -1,6 +1,6 @@
 # Chat & Conversations
 
-**Last verified:** 2026-07-25
+**Last verified:** 2026-08-06
 
 Kai's chat system manages the message history, conversation persistence, file attachments, and speech output. Conversations are service-independent — switching providers does not affect which conversation is loaded or restored. Multiple conversations are persisted and browsable via a history sheet.
 
@@ -100,6 +100,11 @@ Multiple files can be attached to a single prompt. Each file is added one at a t
 - Toggle in the top bar enables auto-play of new assistant messages
 - Per-message play button on assistant messages
 - Markdown is stripped before speaking
+- Speaks through the device's **default** speech engine rather than forcing one specific vendor, so it works on de-Googled/FOSS phones and any user-installed (including offline) engine. See [voice.md](voice.md)
+
+## Voice Input
+
+- On Android, a mic button in the chat input dictates speech into the text field (offline-preferring, no bundled model). See [voice.md](voice.md)
 
 ## Conversation Storage
 
@@ -115,7 +120,7 @@ Multiple files can be attached to a single prompt. Each file is added one at a t
 - **Top bar**: New Chat, Chat History, a Sandbox toggle (Android only, shown between History and TTS when the sandbox feature is available on the device), TTS toggle, Settings (on mobile; on non-mobile, Settings is in the navigation tab bar)
 - **Scroll to bottom**: a small floating action button (down arrow) appears when the user has scrolled up past the latest messages; tapping it animates back to the bottom
 - **Messages**: user (right-aligned, with optional image preview), assistant (Markdown-rendered + action buttons), tool executing (spinner), loading indicator, error with retry (or free-provider suggestions panel when Free is rate-limited with no services configured). When the fallback chain answered with an alternate service rather than the user's selected one, a small "Answered by …" label is shown under the assistant message naming the service that produced the response
-- **Input**: text field, send/stop button, attachment button, file chip
+- **Input**: text field, send/stop button, attachment button, file chip, and (Android, when the input is empty) a mic button for voice dictation
 - **Empty state**: animated logo + welcome message
 - **Drag-and-drop**: supported for file attachments
 - **History sheet**: bottom sheet listing saved conversations with title, date, active highlight, and delete

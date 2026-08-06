@@ -2,7 +2,7 @@
 
 **Last verified:** 2026-07-31
 
-POSH is **black-screen everywhere**: a pure-black background with white text, red accents, and red outlines. Every theme-picker mode resolves to this same palette — "Light" is not a white theme — and wallpaper-derived Material You dynamic colors are disabled on Android so the brand scheme always wins. Because the background is pure black, cards render as transparent panels with red outline borders rather than gray fills. The app icon and in-app logo are a white shell prompt (">_") on a red rounded square.
+POSH is **black-screen everywhere**: a pure-black background with white text, red accents, and red outlines. Every theme-picker mode resolves to this same palette — "Light" is not a white theme — and wallpaper-derived Material You dynamic colors are disabled on Android so the brand scheme always wins. Because the background is pure black, cards render as transparent panels with red outline borders rather than gray fills. The app icon and in-app logo are a white "P" letterform whose bowl carries a red ">" chevron with a black shadow edge, on a red field.
 
 The four-way theme picker (**System**, **Light**, **Dark**, **OLED**) still exists in Settings but is currently cosmetic, since all modes map to the black scheme.
 
@@ -27,12 +27,12 @@ New text inputs should use the shared text-field components (or the shared text-
 | File | Purpose |
 |------|---------|
 | `composeApp/.../ui/Theme.kt` | Light/dark color schemes, red accent constants, black/cyan text-field colors, pure-black OLED override |
-| `composeApp/.../ui/components/PoshLogo.kt` | The ">_" logo mark used in the chat empty state and interactive-mode welcome |
+| `composeApp/.../ui/components/PoshLogo.kt` | The P-chevron logo mark used in the chat empty state and interactive-mode welcome |
 | `composeApp/.../data/AppSettings.kt` | Theme mode enum and persistent setting, with one-time migration from the legacy OLED boolean |
 | `composeApp/.../App.kt` | Shared app content — observes the theme setting and picks the light, dark, or black-flattened dark scheme |
 | `composeApp/.../ui/settings/SettingsScreen.kt` | Theme mode dropdown in the General tab |
 | `androidApp/.../MainActivity.kt` | Android entry — the resolved dark/light state drives the system-bar style |
-| `androidApp/src/main/res/drawable/ic_launcher_foreground.xml` | Launcher icon glyph (white ">_" prompt) |
+| `androidApp/src/main/res/drawable/ic_launcher_foreground.xml` | Launcher icon glyph (white P with red chevron) |
 | `androidApp/src/main/res/values/ic_launcher_background.xml` | Launcher icon background (red) |
 | `androidApp/.../res/values-night/styles.xml` | Pre-Compose window background matching the dark frame |
 | `composeApp/.../desktopMain/.../main.kt` | Desktop entry — window title, HiDPI hints, initial window size |

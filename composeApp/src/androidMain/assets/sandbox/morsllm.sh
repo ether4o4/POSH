@@ -44,6 +44,36 @@ require_jq() {
     }
 }
 
+# Download with whatever the sandbox has. A fresh sandbox has busybox wget but
+# no curl (curl is only installed later in provision's apk step), so the
+# prebuilt fast path must not assume curl exists.
+fetch_url() {
+    local url="$1" dest="$2"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL --max-time 600 -o "$dest" "$url"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q -T 600 -O "$dest" "$url"
+    else
+        return 1
+    fi
+}
+
+# True if the file looks like a runnable aarch64 build: either it executes, or
+# it has ELF magic on an aarch64 machine. The direct exec check alone is not
+# enough — proot's exec emulation sometimes refuses freshly-written binaries
+# even though they are fine, which used to dump users into a 30-min source
+# compile despite a good prebuilt download.
+looks_runnable() {
+    local f="$1"
+    [ -s "$f" ] || return 1
+    if "$f" --version >/dev/null 2>&1; then
+        return 0
+    fi
+    local magic
+    magic=$(od -An -tx1 -N4 "$f" 2>/dev/null | tr -d ' \n')
+    [ "$magic" = "7f454c46" ] && [ "$(uname -m)" = "aarch64" ]
+}
+
 # Walk every triplet-prefixed binary in /usr/bin and create the short
 # shortcut (e.g. /usr/bin/ar -> aarch64-alpine-linux-musl-ar) if the
 # short name is missing. Idempotent. Called after every install path
@@ -166,21 +196,21 @@ cmd_provision() {
         prebuilt_url="https://github.com/ether4o4/MorsVitaEst/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl"
         mkdir -p "$BIN_DIR"
         log "provision: trying pre-built binary at $prebuilt_url"
-        if curl -fsSL --max-time 120 -o "$LLAMA_SERVER.tmp" "$prebuilt_url" 2>/dev/null \
+        if fetch_url "$prebuilt_url" "$LLAMA_SERVER.tmp" 2>/dev/null \
             && [ -s "$LLAMA_SERVER.tmp" ]; then
             chmod 755 "$LLAMA_SERVER.tmp"
-            if "$LLAMA_SERVER.tmp" --version >/dev/null 2>&1; then
+            if looks_runnable "$LLAMA_SERVER.tmp"; then
                 mv "$LLAMA_SERVER.tmp" "$LLAMA_SERVER"
                 log "provision: pre-built binary installed -> $LLAMA_SERVER"
                 emit "{\"ok\":true,\"prebuilt\":true,\"path\":\"$LLAMA_SERVER\"}"
                 provision_emitted=1
                 return 0
             else
-                log "provision: pre-built binary downloaded but exec check failed, falling back to source compile"
+                log "provision: pre-built binary downloaded but validity check failed, falling back to source compile"
                 rm -f "$LLAMA_SERVER.tmp"
             fi
         else
-            log "provision: pre-built download failed or empty, falling back to source compile"
+            log "provision: pre-built download failed or empty (no curl/wget, offline, or timeout), falling back to source compile"
             rm -f "$LLAMA_SERVER.tmp"
         fi
     fi

@@ -479,6 +479,11 @@ actual fun getAvailableTools(): List<Tool> {
 
         val mcpServerManager: McpServerManager by inject(McpServerManager::class.java)
         addAll(mcpServerManager.getEnabledMcpTools())
+
+        // FoneClaw-compatible plugin APKs contribute their enabled tools the same
+        // way MCP servers do. No-op when no plugin APK is installed.
+        val pluginManager: com.inspiredandroid.kai.plugins.PluginManager by inject(com.inspiredandroid.kai.plugins.PluginManager::class.java)
+        addAll(pluginManager.getEnabledPluginTools())
     }
 }
 

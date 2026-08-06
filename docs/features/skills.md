@@ -1,6 +1,6 @@
 # Skills
 
-**Last verified:** 2026-07-31
+**Last verified:** 2026-08-06
 
 > **POSH addition:** skills can also be created in-app from the hub's **Skills** page — a name/description/instructions form writes the skill's definition file directly into the sandbox, where hot-reload activates it immediately. See [hub.md](hub.md).
 
@@ -8,7 +8,7 @@ Kai supports installable **skills**: reusable instruction bundles, modeled on An
 
 User-installed skills live **in the Linux sandbox**: each is a folder at `~/skills/<id>/` (its `SKILL.md` plus any files). There is no separate copy of those folders in app settings. Because of this, the Skills UI is **Android-only** (the only platform with a sandbox) and requires the sandbox to be installed first. The user browses a curated set of skill marketplaces (or installs from any GitHub repo) and triggers a skill in chat by starting a message with its slash command.
 
-In addition, Kai ships a small set of **built-in skills** (currently `create-skill`) loaded from app compose resources. Built-ins appear in the Skills list once the sandbox is installed, are labeled as built-in, and are not removable through the UI. If a user installs a sandbox skill with the same id, the sandbox copy takes precedence over the built-in.
+In addition, Kai ships a small set of **built-in skills** (currently `create-skill`, `web-research`, and `device-brief`) loaded from app compose resources. Built-ins appear in the Skills list once the sandbox is installed, are labeled as built-in, and are not removable through the UI. If a user installs a sandbox skill with the same id, the sandbox copy takes precedence over the built-in.
 
 ## Concepts
 
