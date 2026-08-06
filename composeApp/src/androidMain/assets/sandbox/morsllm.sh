@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# morsllm: local GGUF runtime for MorsVitaEst on Android (Alpine + proot sandbox).
+# morsllm: local GGUF runtime for POSH on Android (Alpine + proot sandbox).
 # Builds llama.cpp's llama-server CPU-only, resolves and downloads GGUF models
 # from Hugging Face, and serves an OpenAI-compatible API on loopback:8080.
 #
@@ -156,33 +156,53 @@ cmd_provision() {
     provision_emitted=0
     trap '[ "${provision_emitted:-0}" = "1" ] || emit "{\"ok\":false,\"error\":\"provision_crashed\",\"detail\":\"line ${LINENO}\"}"' EXIT
 
-    # Fast path: try downloading the pre-built llama-server binary from our
-    # release artifact. Cuts provision time from 10-30 min compile-in-proot
-    # to <1 minute download + chmod. Same aarch64-linux-musl static build
-    # we'd produce in-sandbox, just cross-compiled in CI and published as a
-    # release asset. Falls through to source compile if download or exec
-    # check fails (network down, release not built yet, arch mismatch).
+    # Fast path: try downloading the pre-built llama-server binary from the
+    # public Hugging Face mirror (GitHub release URLs as fallbacks). Cuts
+    # provision time from 10-30 min compile-in-proot to <1 minute download +
+    # chmod. Falls through to source compile if download or exec check fails
+    # (network down, mirror not published yet, arch mismatch).
     if [ ! -x "$LLAMA_SERVER" ]; then
-        prebuilt_url="https://github.com/ether4o4/MorsVitaEst/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl"
+        # A static aarch64-linux-musl llama-server, cross-built in CI so the
+        # phone never has to. Same binary we'd compile in-sandbox, minus the
+        # 10-30 min proot compile. The canonical public host is a Hugging Face
+        # model repo (mirrored there by the "Publish llama-server to Hugging
+        # Face" workflow) because the GitHub repo is private — its release
+        # assets 404 for the unauthenticated curl running in this sandbox. The
+        # GitHub URLs stay as fallbacks in case the repo ever goes public or a
+        # fork hosts its own release. Falls through to the source compile if
+        # no host is reachable/runnable.
         mkdir -p "$BIN_DIR"
-        log "provision: trying pre-built binary at $prebuilt_url"
-        if curl -fsSL --max-time 120 -o "$LLAMA_SERVER.tmp" "$prebuilt_url" 2>/dev/null \
-            && [ -s "$LLAMA_SERVER.tmp" ]; then
-            chmod 755 "$LLAMA_SERVER.tmp"
-            if "$LLAMA_SERVER.tmp" --version >/dev/null 2>&1; then
-                mv "$LLAMA_SERVER.tmp" "$LLAMA_SERVER"
-                log "provision: pre-built binary installed -> $LLAMA_SERVER"
-                emit "{\"ok\":true,\"prebuilt\":true,\"path\":\"$LLAMA_SERVER\"}"
-                provision_emitted=1
-                return 0
+        for prebuilt_url in \
+            "https://huggingface.co/Ether4o4/posh-llama-server/resolve/main/llama-server-aarch64-musl" \
+            "https://github.com/ether4o4/POSH/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl" \
+            "https://github.com/ether4o4/posh/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl"; do
+            log "provision: trying pre-built binary at $prebuilt_url"
+            # Stall detection instead of a hard total-time cap: --max-time 120
+            # would abort a healthy-but-slow mobile download of this ~14 MB
+            # binary and silently dump the user into the 10-30 min source
+            # compile. Fail fast on dead hosts (connect timeout) and on
+            # transfers that drop below 1 KB/s for 30s, but let a slow steady
+            # download finish.
+            if curl -fsSL --connect-timeout 15 --speed-limit 1024 --speed-time 30 \
+                -o "$LLAMA_SERVER.tmp" "$prebuilt_url" 2>/dev/null \
+                && [ -s "$LLAMA_SERVER.tmp" ]; then
+                chmod 755 "$LLAMA_SERVER.tmp"
+                if "$LLAMA_SERVER.tmp" --version >/dev/null 2>&1; then
+                    mv "$LLAMA_SERVER.tmp" "$LLAMA_SERVER"
+                    log "provision: pre-built binary installed -> $LLAMA_SERVER"
+                    emit "{\"ok\":true,\"prebuilt\":true,\"path\":\"$LLAMA_SERVER\"}"
+                    provision_emitted=1
+                    return 0
+                else
+                    log "provision: pre-built binary downloaded but exec check failed, trying next source"
+                    rm -f "$LLAMA_SERVER.tmp"
+                fi
             else
-                log "provision: pre-built binary downloaded but exec check failed, falling back to source compile"
+                log "provision: pre-built download failed or empty at this host, trying next source"
                 rm -f "$LLAMA_SERVER.tmp"
             fi
-        else
-            log "provision: pre-built download failed or empty, falling back to source compile"
-            rm -f "$LLAMA_SERVER.tmp"
-        fi
+        done
+        log "provision: no pre-built binary available, falling back to source compile"
     fi
 
     apk_log="$LOGS_DIR/apk.log"
@@ -589,6 +609,28 @@ cmd_serve() {
         return 1
     fi
 
+    # Beginner-friendly RAM preflight. Loading a GGUF needs roughly its on-disk
+    # size resident (weights are mmap'd but paged in during inference), plus a
+    # KV-cache slice. On a phone that's short on free memory, llama-server would
+    # otherwise load partway and get silently OOM-killed by Android after a long
+    # wait — exactly the "it just loads and never actually works" symptom. Fail
+    # fast (<1s) with a plain-language message instead. Skipped if we can't read
+    # either number, so it can never wrongly block a launch.
+    local model_bytes mem_avail_kb mem_avail_bytes needed avail_mb model_mb
+    model_bytes=$(stat -c %s "$model_path" 2>/dev/null || echo 0)
+    mem_avail_kb=$(awk '/^MemAvailable:/{print $2; exit}' /proc/meminfo 2>/dev/null || echo 0)
+    mem_avail_bytes=$((mem_avail_kb * 1024))
+    if [ "$model_bytes" -gt 0 ] && [ "$mem_avail_bytes" -gt 0 ]; then
+        # model + ~1/6 headroom for the KV cache and runtime at ctx 4096.
+        needed=$((model_bytes + model_bytes / 6))
+        if [ "$mem_avail_bytes" -lt "$needed" ]; then
+            avail_mb=$((mem_avail_bytes / 1048576))
+            model_mb=$((model_bytes / 1048576))
+            emit "{\"ok\":false,\"error\":\"insufficient_memory\",\"detail\":\"This model needs about ${model_mb} MB of free RAM to run, but only ${avail_mb} MB is free right now. Close some background apps and try again, or pick a smaller model.\",\"hint\":\"Low free RAM. Try the 'Included 1B' quick-install model, or a smaller quant (Q4_K_M of a 1-3B model).\"}"
+            return 1
+        fi
+    fi
+
     # Replace any prior server on this port.
     cmd_stop >/dev/null 2>&1 || true
 
@@ -608,6 +650,12 @@ cmd_serve() {
     fi
     [ "$threads" -lt 2 ] && threads=2
     log "serve: using $threads of $ncpu cores, ctx 4096"
+    # --jinja: use the model's own chat template (from GGUF metadata) so
+    #   /v1/chat/completions produces correctly-formatted turns and tool calls
+    #   instead of garbled or looping output — the difference between a model
+    #   that "runs" and one that actually answers coherently.
+    # --no-warmup: skip the dummy warm-up decode so /health goes green sooner;
+    #   the first real request pays that cost instead of the startup spinner.
     nohup "$LLAMA_SERVER" \
         --host 127.0.0.1 \
         --port "$port" \
@@ -615,6 +663,8 @@ cmd_serve() {
         --n-gpu-layers 0 \
         --threads "$threads" \
         --ctx-size 4096 \
+        --jinja \
+        --no-warmup \
         >"$log_file" 2>&1 &
     local pid=$!
     echo "$pid" > "$PID_FILE"
@@ -628,7 +678,12 @@ EOF
         if ! kill -0 "$pid" 2>/dev/null; then
             log "serve: process died early; see $log_file"
             rm -f "$PID_FILE"
-            emit "{\"ok\":false,\"error\":\"server_died\",\"log\":\"$log_file\"}"
+            # Surface *why* it died (bad GGUF, OOM, unsupported flag, etc.) right
+            # in the error instead of making the user go dig through a log path.
+            # log_path also makes the app's error dialog auto-load the full tail.
+            local why
+            why=$(tail -c 500 "$log_file" 2>/dev/null | tr -d '"\\' | tr '\n\r\t' '   ' | head -c 300)
+            emit "{\"ok\":false,\"error\":\"server_died\",\"detail\":\"$why\",\"log\":\"$log_file\",\"log_path\":\"$log_file\"}"
             return 1
         fi
         if curl -fsS "http://127.0.0.1:$port/health" >/dev/null 2>&1; then
@@ -639,7 +694,9 @@ EOF
         sleep 1
         elapsed=$((elapsed + 1))
     done
-    emit "{\"ok\":false,\"error\":\"health_timeout\",\"pid\":$pid,\"hint\":\"Model not ready after 5 min — it may be too large for this device's free RAM. Try a smaller model or quant. Log: $log_file\"}"
+    local why_timeout
+    why_timeout=$(tail -c 500 "$log_file" 2>/dev/null | tr -d '"\\' | tr '\n\r\t' '   ' | head -c 300)
+    emit "{\"ok\":false,\"error\":\"health_timeout\",\"pid\":$pid,\"detail\":\"$why_timeout\",\"log\":\"$log_file\",\"log_path\":\"$log_file\",\"hint\":\"Model not ready after 5 min — it may be too large for this device's free RAM. Try a smaller model or quant.\"}"
     return 1
 }
 
@@ -683,7 +740,7 @@ cmd_status() {
 
 usage() {
     cat >&2 <<EOF
-morsllm — local GGUF runtime for MorsVitaEst
+morsllm — local GGUF runtime for POSH
 
 Usage:
   morsllm provision                       Build llama-server (one-time, slow)

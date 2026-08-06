@@ -1,0 +1,95 @@
+name: Publish llama-server to Hugging Face
+
+# Mirrors the prebuilt aarch64-musl `llama-server` binary from this repo's
+# `llama-server-prebuilt-latest` GitHub release to a PUBLIC Hugging Face model
+# repo. The on-device GGUF engine downloads the binary with an unauthenticated
+# curl, and this GitHub repo is private — its release assets 404 for anonymous
+# clients — so the HF repo is the host the phones actually reach.
+#
+# Fast (<1 min): no rebuild, it copies the release asset that the
+# "Prebuilt llama-server" workflow already produced. That workflow also mirrors
+# to HF automatically at the end of each rebuild once HF_TOKEN is configured;
+# this standalone job exists to (re)publish without a 2-hour rebuild.
+#
+# Requires the HF_TOKEN repository secret: a Hugging Face access token with
+# write scope (huggingface.co/settings/tokens), added under
+# Settings -> Secrets and variables -> Actions -> New repository secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      hf_repo:
+        description: 'Target Hugging Face model repo (created public if missing)'
+        required: false
+        default: 'Ether4o4/posh-llama-server'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Mirror release binary to Hugging Face
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Download binary from the prebuilt release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download llama-server-prebuilt-latest \
+            --repo "${{ github.repository }}" \
+            --pattern llama-server-aarch64-musl
+          ls -l llama-server-aarch64-musl
+          # Sanity: must be an ELF binary, not an error page.
+          head -c 4 llama-server-aarch64-musl | od -An -tx1 | tr -s ' ' | grep -q '7f 45 4c 46'
+
+      - name: Upload to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: ${{ github.event.inputs.hf_repo || 'Ether4o4/posh-llama-server' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::HF_TOKEN secret is not set. Create a Hugging Face token with write access (huggingface.co/settings/tokens) and add it as a repository secret named HF_TOKEN."
+            exit 1
+          fi
+          python3 -m pip install -q "huggingface_hub>=0.23"
+          python3 - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          repo = os.environ["HF_REPO"]
+          api.create_repo(repo_id=repo, repo_type="model", exist_ok=True, private=False)
+          api.upload_file(
+              path_or_fileobj="llama-server-aarch64-musl",
+              path_in_repo="llama-server-aarch64-musl",
+              repo_id=repo,
+              repo_type="model",
+          )
+          readme = """---
+          license: mit
+          ---
+
+          # POSH prebuilt llama-server (aarch64-musl)
+
+          Static `aarch64-linux-musl` build of [llama.cpp](https://github.com/ggerganov/llama.cpp)'s
+          `llama-server`, published for the POSH Android app. POSH's on-device GGUF engine
+          downloads this binary into its Alpine/proot sandbox instead of compiling
+          llama.cpp on the phone (which takes 10-30 minutes and can fail on low-RAM
+          devices).
+
+          Built CPU-only, `GGML_NATIVE=OFF` (portable armv8-a baseline), static musl
+          link. llama.cpp is MIT-licensed.
+          """
+          api.upload_file(
+              path_or_fileobj=readme.encode(),
+              path_in_repo="README.md",
+              repo_id=repo,
+              repo_type="model",
+          )
+          print(f"published: https://huggingface.co/{repo}/resolve/main/llama-server-aarch64-musl")
+          EOF

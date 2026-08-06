@@ -4,13 +4,15 @@ html, body {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    color-scheme: light dark;
-    background-color: #FFFFFF;
+    color-scheme: dark;
+    /* POSH brand background (deep-teal ink) so the page frame and pre-load
+       state match the in-app scheme instead of flashing white. */
+    background-color: #0A1B22;
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
     html, body {
-        background-color: #121212;
+        background-color: #0A1B22;
     }
 }
 

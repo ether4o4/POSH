@@ -75,7 +75,7 @@ class GgufServerManager(
         }
     }
 
-    fun startProvision() = launchOp("Building engine… one-time, may take 10–30 min") {
+    fun startProvision() = launchOp("Setting up engine… usually under a minute; up to 30 min if it has to compile from source") {
         val r = provision()
         if (r.ok) EngineOp.Done("Engine ready") else EngineOp.Failed(r)
     }
