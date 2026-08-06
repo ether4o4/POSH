@@ -52,6 +52,40 @@ require_jq() {
     }
 }
 
+# Download with whatever the sandbox has. A fresh sandbox has busybox wget but
+# no curl (curl is only installed later in provision's apk step), so the
+# prebuilt fast path must not assume curl exists.
+fetch_url() {
+    local url="$1" dest="$2"
+    if command -v curl >/dev/null 2>&1; then
+        # Stall detection rather than a hard total cap: don't abort a
+        # healthy-but-slow mobile download of the ~14 MB binary, but fail fast
+        # on dead hosts (connect timeout) and transfers stalled below 1 KB/s
+        # for 30s.
+        curl -fsSL --connect-timeout 15 --speed-limit 1024 --speed-time 30 -o "$dest" "$url"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q -T 60 -O "$dest" "$url"
+    else
+        return 1
+    fi
+}
+
+# True if the file looks like a runnable aarch64 build: either it executes, or
+# it has ELF magic on an aarch64 machine. The direct exec check alone is not
+# enough — proot's exec emulation sometimes refuses freshly-written binaries
+# even though they are fine, which used to dump users into a 30-min source
+# compile despite a good prebuilt download.
+looks_runnable() {
+    local f="$1"
+    [ -s "$f" ] || return 1
+    if "$f" --version >/dev/null 2>&1; then
+        return 0
+    fi
+    local magic
+    magic=$(od -An -tx1 -N4 "$f" 2>/dev/null | tr -d ' \n')
+    [ "$magic" = "7f454c46" ] && [ "$(uname -m)" = "aarch64" ]
+}
+
 # Walk every triplet-prefixed binary in /usr/bin and create the short
 # shortcut (e.g. /usr/bin/ar -> aarch64-alpine-linux-musl-ar) if the
 # short name is missing. Idempotent. Called after every install path
@@ -212,24 +246,22 @@ cmd_provision() {
             "https://github.com/ether4o4/POSH/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl" \
             "https://github.com/ether4o4/posh/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl"; do
             log "provision: trying pre-built binary at $prebuilt_url"
-            # Stall detection instead of a hard total-time cap: --max-time 120
-            # would abort a healthy-but-slow mobile download of this ~14 MB
-            # binary and silently dump the user into the 10-30 min source
-            # compile. Fail fast on dead hosts (connect timeout) and on
-            # transfers that drop below 1 KB/s for 30s, but let a slow steady
-            # download finish.
-            if curl -fsSL --connect-timeout 15 --speed-limit 1024 --speed-time 30 \
-                -o "$LLAMA_SERVER.tmp" "$prebuilt_url" 2>/dev/null \
+            # fetch_url prefers curl (stall-detection flags) and falls back to
+            # busybox wget on a fresh sandbox that has no curl yet; looks_runnable
+            # accepts either a successful --version or ELF magic on aarch64, since
+            # proot's exec emulation occasionally refuses a freshly-written but
+            # valid binary.
+            if fetch_url "$prebuilt_url" "$LLAMA_SERVER.tmp" 2>/dev/null \
                 && [ -s "$LLAMA_SERVER.tmp" ]; then
                 chmod 755 "$LLAMA_SERVER.tmp"
-                if "$LLAMA_SERVER.tmp" --version >/dev/null 2>&1; then
+                if looks_runnable "$LLAMA_SERVER.tmp"; then
                     mv "$LLAMA_SERVER.tmp" "$LLAMA_SERVER"
                     log "provision: pre-built binary installed -> $LLAMA_SERVER"
                     emit "{\"ok\":true,\"prebuilt\":true,\"path\":\"$LLAMA_SERVER\"}"
                     provision_emitted=1
                     return 0
                 else
-                    log "provision: pre-built binary downloaded but exec check failed, trying next source"
+                    log "provision: pre-built binary downloaded but validity check failed, trying next source"
                     rm -f "$LLAMA_SERVER.tmp"
                 fi
             else

@@ -1,7 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+   <!-- FoneClaw-compatible plugin host. POSH binds plugin APKs' extension services,
+        which are protected by this permission. Define it (normal protection) and hold
+        it so POSH can bind regardless of which app first declared it, and declare the
+        <queries> so plugin services are visible under Android 11+ package filtering. -->
+   <permission
+       android:name="ai.android.claw.permission.BIND_EXTENSION"
+       android:protectionLevel="normal"/>
+   <uses-permission android:name="ai.android.claw.permission.BIND_EXTENSION"/>
+   <queries>
+       <intent>
+           <action android:name="ai.android.claw.extension.BIND"/>
+       </intent>
+       <!-- Voice input binds the device speech recognizer; declare it so it stays
+            visible under Android 11+ package filtering. -->
+       <intent>
+           <action android:name="android.speech.RecognitionService"/>
+       </intent>
+   </queries>
+
    <uses-permission android:name="android.permission.INTERNET"/>
+   <!-- Hands-free voice input for the chat box (offline-preferring speech recognizer). -->
+   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
    <!-- Android 17+ blocks LAN traffic for apps targeting SDK 37+ without this runtime
         permission; required to reach self-hosted servers (Jan, Ollama, LM Studio, ...). -->
    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK"/>

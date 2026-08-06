@@ -6,15 +6,21 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.displayCutoutPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -44,6 +50,7 @@ fun PoshHub(
     onOpenTerminal: () -> Unit,
     onOpenModels: () -> Unit,
     onOpenSkills: () -> Unit,
+    onOpenPlugins: () -> Unit,
     onOpenProjects: () -> Unit,
     onOpenMemory: () -> Unit,
     onOpenConfig: () -> Unit,
@@ -59,99 +66,135 @@ fun PoshHub(
         modifier = Modifier
             .fillMaxSize()
             .background(cs.background)
+            // All four insets, not just the status bar: in landscape the navigation
+            // bar and the camera cutout sit along the *sides*, so without these the
+            // hub draws underneath them and the edges are unreachable.
             .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .navigationBarsPadding()
+            .displayCutoutPadding()
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // ---- header ----
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row {
-                    Text("P", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 30.sp, color = cs.onBackground, letterSpacing = 3.sp)
-                    Text("O", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 30.sp, color = cs.primary, letterSpacing = 3.sp)
-                    Text("SH", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 30.sp, color = cs.onBackground, letterSpacing = 3.sp)
-                }
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    "PROMPT-ORCHESTRATED SHELL HUB",
-                    fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = dim, letterSpacing = 2.5.sp,
-                )
-            }
-            Box(
-                modifier = Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(cs.primary),
-            )
-            Spacer(Modifier.size(6.dp))
-            Text("ONLINE", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = cs.primary, letterSpacing = 1.5.sp)
-        }
-
-        Spacer(Modifier.height(20.dp))
-        SectionLabel("ATTRIBUTES", "SYS·01", dim, faint, hair)
-        Spacer(Modifier.height(10.dp))
-
-        // ---- gauges (static placeholders for v1; live system stats wired in a follow-up) ----
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GaugeArc(Modifier.weight(1f), 0.62f, "RAM", "5G", cs.primary, track, cs.onSurface, dim)
-            GaugeArc(Modifier.weight(1f), 0.47f, "DISK", "45G", cs.primary, track, cs.onSurface, dim)
-            InfoCell(Modifier.weight(1f), "CPU", "8C", "cores", cs.onSurface, dim, faint)
-            InfoCell(Modifier.weight(1f), "MODEL", "IDLE", "on-device", cs.onSurface, dim, faint)
-        }
-
-        Spacer(Modifier.height(18.dp))
-
-        // ---- core panel ----
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(cs.surface)
-                .border(1.dp, hair, RoundedCornerShape(14.dp))
-                .padding(16.dp),
+        // Cap the content width so a landscape/tablet window doesn't stretch the HUD
+        // across the whole screen; same 900.dp ceiling the settings screen uses.
+        Column(
+            modifier = Modifier.widthIn(max = 900.dp).fillMaxWidth().padding(16.dp),
         ) {
+            // ---- header ----
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(cs.primary))
-                Spacer(Modifier.size(12.dp))
-                Column {
-                    Text("POSH CORE", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cs.onSurface, letterSpacing = 1.5.sp)
-                    Spacer(Modifier.height(3.dp))
-                    Text("Alpine proot shell live · engines ready", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = dim)
+                Column(modifier = Modifier.weight(1f)) {
+                    Row {
+                        Text("P", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 30.sp, color = cs.onBackground, letterSpacing = 3.sp)
+                        Text("O", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 30.sp, color = cs.primary, letterSpacing = 3.sp)
+                        Text("SH", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 30.sp, color = cs.onBackground, letterSpacing = 3.sp)
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        "PROMPT-ORCHESTRATED SHELL HUB",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 8.5.sp,
+                        color = dim,
+                        letterSpacing = 2.5.sp,
+                    )
                 }
+                Box(
+                    modifier = Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(cs.primary),
+                )
+                Spacer(Modifier.size(6.dp))
+                Text("ONLINE", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = cs.primary, letterSpacing = 1.5.sp)
             }
-        }
 
-        Spacer(Modifier.height(20.dp))
-        SectionLabel("CONSOLE", "NAV·02", dim, faint, hair)
-        Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(20.dp))
+            SectionLabel("ATTRIBUTES", "SYS·01", dim, faint, hair)
+            Spacer(Modifier.height(10.dp))
 
-        // ---- tiles ----
-        val tiles = listOf(
-            HubTile("◉", "CHAT", "talk to the AI", onOpenChat),
-            HubTile("▚", "TERMINAL", "the live shell", onOpenTerminal),
-            HubTile("⬡", "MODELS", "gguf on-device", onOpenModels),
-            HubTile("✦", "SKILLS", "create · equip", onOpenSkills),
-            HubTile("⌘", "PROJECTS", "start · resume", onOpenProjects),
-            HubTile("▤", "FILES", "the sandbox", onOpenSettings),
-            HubTile("✜", "MEMORY", "what it knows", onOpenMemory),
-            HubTile("◈", "CONFIG", "persona · engine", onOpenConfig),
-            HubTile("⚙", "SETTINGS", "sandbox · tools", onOpenSettings),
-        )
-        tiles.chunked(3).forEach { rowTiles ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            // ---- gauges (static placeholders for v1; live system stats wired in a follow-up) ----
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GaugeArc(Modifier.weight(1f), 0.62f, "RAM", "5G", cs.primary, track, cs.onSurface, dim)
+                GaugeArc(Modifier.weight(1f), 0.47f, "DISK", "45G", cs.primary, track, cs.onSurface, dim)
+                InfoCell(Modifier.weight(1f), "CPU", "8C", "cores", cs.onSurface, dim, faint)
+                InfoCell(Modifier.weight(1f), "MODEL", "IDLE", "on-device", cs.onSurface, dim, faint)
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            // ---- core panel ----
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(cs.surface)
+                    .border(1.dp, hair, RoundedCornerShape(14.dp))
+                    .padding(16.dp),
             ) {
-                rowTiles.forEach { t ->
-                    TileView(Modifier.weight(1f), t, cs, dim, hair)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(cs.primary))
+                    Spacer(Modifier.size(12.dp))
+                    Column {
+                        Text("POSH CORE", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cs.onSurface, letterSpacing = 1.5.sp)
+                        Spacer(Modifier.height(3.dp))
+                        Text("Alpine proot shell live · engines ready", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = dim)
+                    }
                 }
             }
-        }
 
-        Spacer(Modifier.height(12.dp))
-        Text(
-            "POSH · IMMUTABLE ORDER · v0.9",
-            modifier = Modifier.fillMaxWidth(),
-            fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = faint, letterSpacing = 2.sp,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
+            Spacer(Modifier.height(20.dp))
+            SectionLabel("CONSOLE", "NAV·02", dim, faint, hair)
+            Spacer(Modifier.height(10.dp))
+
+            // ---- tiles ----
+            val tiles = listOf(
+                HubTile("◉", "CHAT", "talk to the AI", onOpenChat),
+                HubTile("▚", "TERMINAL", "the live shell", onOpenTerminal),
+                HubTile("⬡", "MODELS", "gguf on-device", onOpenModels),
+                HubTile("✦", "SKILLS", "create · equip", onOpenSkills),
+                HubTile("⧉", "PLUGINS", "extend the agent", onOpenPlugins),
+                HubTile("⌘", "PROJECTS", "start · resume", onOpenProjects),
+                HubTile("▤", "FILES", "the sandbox", onOpenSettings),
+                HubTile("✜", "MEMORY", "what it knows", onOpenMemory),
+                HubTile("◈", "CONFIG", "persona · engine", onOpenConfig),
+                HubTile("⚙", "SETTINGS", "sandbox · tools", onOpenSettings),
+            )
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                // Add columns as the window widens instead of stretching three tiles
+                // across a landscape screen. Never drops below the portrait count of 3.
+                val columns = when {
+                    maxWidth >= 700.dp -> 5
+                    maxWidth >= 520.dp -> 4
+                    else -> 3
+                }
+                Column {
+                    tiles.chunked(columns).forEach { rowTiles ->
+                        Row(
+                            // IntrinsicSize.Min keeps every tile in a row the same height
+                            // even when their hint text wraps differently.
+                            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowTiles.forEach { t ->
+                                TileView(Modifier.weight(1f).fillMaxHeight(), t, cs, dim, hair)
+                            }
+                            // Hold the grid open on a short final row so its tiles stay
+                            // the same width as the rows above instead of stretching.
+                            repeat(columns - rowTiles.size) {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "POSH · IMMUTABLE ORDER · v0.9",
+                modifier = Modifier.fillMaxWidth(),
+                fontFamily = FontFamily.Monospace,
+                fontSize = 8.sp,
+                color = faint,
+                letterSpacing = 2.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
     }
 }
 

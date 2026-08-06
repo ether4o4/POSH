@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -217,6 +218,7 @@ private fun InteractiveModeScreen(
             .background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding()
             .statusBarsPadding()
+            .displayCutoutPadding()
             .imePadding(),
     ) {
         Column(Modifier.fillMaxSize()) {
@@ -527,7 +529,7 @@ private fun ChatModeScreen(
         }
     }
 
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).navigationBarsPadding().statusBarsPadding().imePadding()) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).navigationBarsPadding().statusBarsPadding().displayCutoutPadding().imePadding()) {
         Column(Modifier.fillMaxSize()) {
             TopBar(
                 textToSpeech = textToSpeech,
