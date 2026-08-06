@@ -49,19 +49,11 @@ val gradientMagenta = Color(0xFFFF5252)
 
 fun Modifier.handCursor() = pointerHoverIcon(PointerIcon.Hand, overrideDescendants = true)
 
-// POSH brand background: a deep "abyssal teal" ink rather than flat black. Teal sits
-// opposite red on the color wheel, so the red accents read hotter and pop harder than
-// they ever did on black, while the color stays dark enough to keep white body text
-// crisp — and it quietly rhymes with the cyan text-field accent. The near-black text
-// boxes now float on a tinted page instead of blending into it. OLED mode still maps
-// to pure black (see [withBlackBackground]).
-val brandBackground = Color(0xFF0A1B22)
+// POSH uses one strict red, white, and black palette on every platform.
+val brandBackground = Color.Black
 
-// POSH scheme: deep-teal screen, white text, red accents and outlines. Both theme
-// modes resolve to this palette — the theme picker still exists, but POSH's identity
-// is teal/red/white everywhere. The brand background (like pure black) flips
-// isOledFlavor, so cards render as transparent-with-red-outline panels instead of
-// gray fills.
+// Both theme modes resolve to the same branded scheme. Near-black and dark-red
+// containers add hierarchy without introducing off-palette hues.
 val DarkColorScheme = darkColorScheme(
     primary = Color(0xFFFF3B30),
     onPrimary = Color(0xFFFFFFFF),
@@ -74,8 +66,8 @@ val DarkColorScheme = darkColorScheme(
     tertiary = Color(0xFFFFFFFF),
     onTertiary = Color(0xFF000000),
     surface = brandBackground,
-    surfaceVariant = Color(0xFF13272E),
-    onSurfaceVariant = Color(0xFFB9C6CB),
+    surfaceVariant = Color(0xFF121212),
+    onSurfaceVariant = Color(0xFFD0D0D0),
     background = brandBackground,
     onBackground = Color(0xFFFFFFFF),
     onSurface = Color(0xFFFFFFFF),
@@ -89,9 +81,8 @@ fun ColorScheme.withBlackBackground(): ColorScheme = copy(
     surfaceContainerLowest = Color.Black,
 )
 
-// The "flavor" that renders cards as transparent panels with red outlines instead of
-// gray fills: true for both the brand teal page and the pure-black OLED page.
-val ColorScheme.isOledFlavor: Boolean get() = background == Color.Black || background == brandBackground
+// Cards stay transparent with red outlines against the black page.
+val ColorScheme.isOledFlavor: Boolean get() = background == Color.Black
 
 @Composable
 fun kaiAdaptiveCardColors(): CardColors = CardDefaults.cardColors(
@@ -131,29 +122,30 @@ fun Modifier.kaiAdaptiveCardSurface(shape: Shape = CardDefaults.shape): Modifier
 // everywhere by design.
 val LightColorScheme = DarkColorScheme
 
-// POSH text boxes: black container with cyan text, in both light and dark themes.
-val textBoxBackground = Color(0xFF000000)
-val textBoxCyan = Color(0xFF00E5FF)
+// POSH text boxes: black container, white text, and red interaction accents.
+val textBoxBackground = Color.Black
+val textBoxForeground = Color.White
+val textBoxAccent = Color(0xFFFF3B30)
 
 @Composable
 fun outlineTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = textBoxCyan,
-    unfocusedTextColor = textBoxCyan,
-    disabledTextColor = textBoxCyan.copy(alpha = 0.5f),
-    cursorColor = textBoxCyan,
+    focusedTextColor = textBoxForeground,
+    unfocusedTextColor = textBoxForeground,
+    disabledTextColor = textBoxForeground.copy(alpha = 0.5f),
+    cursorColor = textBoxAccent,
     focusedContainerColor = textBoxBackground,
     unfocusedContainerColor = textBoxBackground,
     disabledContainerColor = textBoxBackground,
-    focusedBorderColor = textBoxCyan,
+    focusedBorderColor = textBoxAccent,
     unfocusedBorderColor = Color(0xFF444444),
-    focusedLabelColor = textBoxCyan,
-    unfocusedLabelColor = textBoxCyan.copy(alpha = 0.7f),
-    disabledLabelColor = textBoxCyan.copy(alpha = 0.4f),
-    focusedPlaceholderColor = textBoxCyan.copy(alpha = 0.45f),
-    unfocusedPlaceholderColor = textBoxCyan.copy(alpha = 0.45f),
+    focusedLabelColor = textBoxAccent,
+    unfocusedLabelColor = textBoxAccent.copy(alpha = 0.7f),
+    disabledLabelColor = textBoxForeground.copy(alpha = 0.4f),
+    focusedPlaceholderColor = textBoxForeground.copy(alpha = 0.45f),
+    unfocusedPlaceholderColor = textBoxForeground.copy(alpha = 0.45f),
     selectionColors = TextSelectionColors(
-        handleColor = textBoxCyan,
-        backgroundColor = textBoxCyan.copy(alpha = 0.35f),
+        handleColor = textBoxAccent,
+        backgroundColor = textBoxAccent.copy(alpha = 0.35f),
     ),
 )
 

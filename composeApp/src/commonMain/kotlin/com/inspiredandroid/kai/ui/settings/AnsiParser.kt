@@ -13,9 +13,9 @@ private val ansiStandardColors = listOf(
     Color(0xFFCC0000), // 1 Red
     Color(0xFF00CC00), // 2 Green
     Color(0xFFCCCC00), // 3 Yellow
-    Color(0xFF5577FF), // 4 Blue
+    Color(0xFF7F0000), // 4 Blue remapped to dark red
     Color(0xFFCC00CC), // 5 Magenta
-    Color(0xFF00CCCC), // 6 Cyan
+    Color(0xFFCCCCCC), // 6 Cyan remapped to neutral
     Color(0xFFCCCCCC), // 7 White
 )
 
@@ -24,11 +24,21 @@ private val ansiBrightColors = listOf(
     Color(0xFFFF4444), // 9 Bright Red
     Color(0xFF44FF44), // 10 Bright Green
     Color(0xFFFFFF44), // 11 Bright Yellow
-    Color(0xFF6CB6FF), // 12 Bright Blue
+    Color(0xFFFF6E6E), // 12 Bright Blue remapped to light red
     Color(0xFFFF44FF), // 13 Bright Magenta
-    Color(0xFF44FFFF), // 14 Bright Cyan
+    Color(0xFFFFFFFF), // 14 Bright Cyan remapped to white
     Color(0xFFFFFFFF), // 15 Bright White
 )
+
+private fun poshSafeTerminalColor(red: Int, green: Int, blue: Int): Color {
+    if (blue <= red) return Color(red, green, blue)
+    return if (green >= red) {
+        val neutral = maxOf(red, green, blue)
+        Color(neutral, neutral, neutral)
+    } else {
+        Color(blue, minOf(green, blue / 2), minOf(red, blue / 2))
+    }
+}
 
 private fun ansi256Color(index: Int): Color? = when {
     index in 0..7 -> ansiStandardColors[index]
@@ -40,7 +50,7 @@ private fun ansi256Color(index: Int): Color? = when {
         val r = (adjusted / 36) * 51
         val g = ((adjusted / 6) % 6) * 51
         val b = (adjusted % 6) * 51
-        Color(r, g, b)
+        poshSafeTerminalColor(r, g, b)
     }
 
     index in 232..255 -> {

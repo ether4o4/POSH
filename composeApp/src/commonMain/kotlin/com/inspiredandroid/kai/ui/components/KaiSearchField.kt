@@ -18,7 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.inspiredandroid.kai.ui.handCursor
 import com.inspiredandroid.kai.ui.textBoxBackground
-import com.inspiredandroid.kai.ui.textBoxCyan
+import com.inspiredandroid.kai.ui.textBoxAccent
+import com.inspiredandroid.kai.ui.textBoxForeground
 
 @Composable
 fun KaiSearchField(
@@ -49,20 +50,20 @@ fun KaiSearchField(
             null
         },
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color.Transparent,
+            focusedBorderColor = textBoxAccent,
             unfocusedBorderColor = Color.Transparent,
             disabledBorderColor = Color.Transparent,
             focusedContainerColor = textBoxBackground,
             unfocusedContainerColor = textBoxBackground,
-            focusedTextColor = textBoxCyan,
-            unfocusedTextColor = textBoxCyan,
-            cursorColor = textBoxCyan,
-            focusedPlaceholderColor = textBoxCyan.copy(alpha = 0.45f),
-            unfocusedPlaceholderColor = textBoxCyan.copy(alpha = 0.45f),
-            focusedLeadingIconColor = textBoxCyan,
-            unfocusedLeadingIconColor = textBoxCyan.copy(alpha = 0.7f),
-            focusedTrailingIconColor = textBoxCyan,
-            unfocusedTrailingIconColor = textBoxCyan.copy(alpha = 0.7f),
+            focusedTextColor = textBoxForeground,
+            unfocusedTextColor = textBoxForeground,
+            cursorColor = textBoxAccent,
+            focusedPlaceholderColor = textBoxForeground.copy(alpha = 0.45f),
+            unfocusedPlaceholderColor = textBoxForeground.copy(alpha = 0.45f),
+            focusedLeadingIconColor = textBoxAccent,
+            unfocusedLeadingIconColor = textBoxAccent.copy(alpha = 0.7f),
+            focusedTrailingIconColor = textBoxAccent,
+            unfocusedTrailingIconColor = textBoxAccent.copy(alpha = 0.7f),
         ),
     )
 }
