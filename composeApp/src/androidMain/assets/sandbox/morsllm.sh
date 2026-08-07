@@ -619,15 +619,58 @@ cmd_pull() {
 
     local dest="$MODELS_DIR/$filename"
     mkdir -p "$(dirname "$dest")"
-    log "pull: $file_url -> $dest"
-    # -C - resumes partials; --fail returns nonzero on HTTP errors instead of
-    # writing the error page into the .gguf file.
-    if ! curl -L -C - --fail --silent --show-error \
+
+    # Resolve the expected total size so we can (a) drive a real progress bar and
+    # (b) detect a truncated download. Prefer the size the HF tree API already gave
+    # us for a repo pull; fall back to a HEAD request for a direct URL.
+    local total=0
+    if [ -n "${chosen:-}" ] && [ -n "${quants_json:-}" ]; then
+        total=$(echo "$quants_json" | jq -r --arg n "$chosen" '.files[] | select(.name==$n) | .size' 2>/dev/null | head -1)
+    fi
+    case "${total:-}" in
+        ''|null|0)
+            total=$(curl -sIL --max-time 30 ${HF_TOKEN:+-H "Authorization: Bearer $HF_TOKEN"} "$file_url" 2>/dev/null \
+                | grep -i '^content-length:' | tail -1 | tr -dc '0-9')
+            ;;
+    esac
+    [ -z "${total:-}" ] && total=0
+
+    log "pull: $file_url -> $dest (expected ${total} bytes)"
+
+    # Download in the background so we can poll the partial file and emit PROGRESS
+    # lines the app parses into a real progress bar. -C - resumes a partial file,
+    # so a re-tap after an interruption continues instead of restarting; --fail
+    # avoids writing an HTTP error page into the .gguf.
+    curl -L -C - --fail --silent --show-error \
         ${HF_TOKEN:+-H "Authorization: Bearer $HF_TOKEN"} \
-        -o "$dest" "$file_url" >&2; then
-        log "pull: curl failed"
-        # Don't delete on resumable failure — caller can retry and continue.
-        emit "{\"ok\":false,\"error\":\"download_failed\",\"file\":\"$filename\"}"
+        -o "$dest" "$file_url" >&2 &
+    local cpid=$!
+    local last_pct=-1
+    while kill -0 "$cpid" 2>/dev/null; do
+        local cur pct
+        cur=$(stat -c %s "$dest" 2>/dev/null || echo 0)
+        if [ "$total" -gt 0 ] 2>/dev/null; then
+            pct=$((cur * 100 / total))
+            [ "$pct" -gt 100 ] && pct=100
+            if [ "$pct" != "$last_pct" ]; then
+                printf 'PROGRESS %d %d %d\n' "$pct" "$cur" "$total" >&2
+                last_pct=$pct
+            fi
+        else
+            printf 'PROGRESS -1 %d 0\n' "$cur" >&2
+        fi
+        sleep 1
+    done
+    local rc=0
+    wait "$cpid" || rc=$?
+
+    local final_sz
+    final_sz=$(stat -c %s "$dest" 2>/dev/null || echo 0)
+
+    if [ "$rc" != "0" ]; then
+        log "pull: curl failed (rc=$rc)"
+        # Keep the partial — a re-tap resumes it.
+        emit "{\"ok\":false,\"error\":\"download_failed\",\"file\":\"$filename\",\"size\":$final_sz,\"expected\":$total,\"hint\":\"Download interrupted. Tap Download again to resume where it left off, and keep POSH open with the screen on until it finishes.\"}"
         return 1
     fi
     if ! is_gguf "$dest"; then
@@ -636,9 +679,16 @@ cmd_pull() {
         emit '{"ok":false,"error":"not_gguf","hint":"file did not start with GGUF magic bytes; check HF auth or model availability"}'
         return 1
     fi
-    local sz
-    sz=$(stat -c %s "$dest" 2>/dev/null || echo 0)
-    emit "{\"ok\":true,\"file\":\"$filename\",\"path\":\"$dest\",\"size\":$sz}"
+    # Size verification: a truncated file still starts with the GGUF magic bytes,
+    # so the magic check alone passes it — llama-server then dies at load with
+    # "tensor data is not within the file bounds". Compare against the expected
+    # size and refuse a short file so the user isn't handed a corrupt model.
+    if [ "$total" -gt 0 ] 2>/dev/null && [ "$final_sz" -lt "$total" ]; then
+        log "pull: incomplete ($final_sz < $total)"
+        emit "{\"ok\":false,\"error\":\"download_incomplete\",\"file\":\"$filename\",\"size\":$final_sz,\"expected\":$total,\"hint\":\"The file is smaller than expected — the download was cut short. Tap Download again to resume, keeping POSH open and the screen on.\"}"
+        return 1
+    fi
+    emit "{\"ok\":true,\"file\":\"$filename\",\"path\":\"$dest\",\"size\":$final_sz,\"expected\":$total}"
 }
 
 cmd_list_models() {

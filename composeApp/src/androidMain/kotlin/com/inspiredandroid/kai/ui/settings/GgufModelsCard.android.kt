@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -62,6 +63,7 @@ actual fun PlatformGgufModelsCard() {
     val op by manager.op.collectAsState()
     val busy = op is GgufServerManager.EngineOp.Running
     val busyLabel = (op as? GgufServerManager.EngineOp.Running)?.label.orEmpty()
+    val busyProgress = (op as? GgufServerManager.EngineOp.Running)?.progress
     val errorResult = (op as? GgufServerManager.EngineOp.Failed)?.result
 
     var status by remember { mutableStateOf<GgufServerManager.Status?>(null) }
@@ -146,14 +148,28 @@ actual fun PlatformGgufModelsCard() {
         Spacer(Modifier.height(12.dp))
 
         if (busy) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(12.dp))
+            if (busyProgress != null) {
+                // Determinate download progress: real bar + percentage.
                 Text(
                     text = busyLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = { busyProgress },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = busyLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         } else if (st == null || !st.provisioned) {
             Text(

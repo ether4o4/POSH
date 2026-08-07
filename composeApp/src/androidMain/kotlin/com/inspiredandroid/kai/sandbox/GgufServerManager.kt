@@ -45,7 +45,9 @@ class GgufServerManager(
      */
     sealed interface EngineOp {
         data object Idle : EngineOp
-        data class Running(val label: String) : EngineOp
+        /** [progress] is 0f..1f when a determinate value is known (model download),
+         *  or null for an indeterminate spinner. */
+        data class Running(val label: String, val progress: Float? = null) : EngineOp
         data class Done(val message: String) : EngineOp
         data class Failed(val result: GenericResult) : EngineOp
     }
@@ -224,13 +226,30 @@ class GgufServerManager(
         ).trim()
     }
 
-    private suspend fun runStreaming(subcommand: String): String {
+    private suspend fun runStreaming(
+        subcommand: String,
+        onStderrLine: (String) -> Unit = {},
+    ): String {
         if (!ensureScriptInstalled()) return SCRIPT_INSTALL_FAILED_JSON
         val stdoutBuf = StringBuilder()
+        // stderr arrives in arbitrary chunks; buffer and dispatch whole lines so
+        // callers can parse line-oriented progress (PROGRESS <pct> <cur> <total>).
+        val stderrBuf = StringBuilder()
         val handle = sandbox.executeCommandStreaming(
             command = "$SCRIPT_PATH $subcommand",
             onStdout = { synchronized(stdoutBuf) { stdoutBuf.append(it) } },
-            onStderr = { /* progress; ignored — morsllm emits the result JSON on stdout */ },
+            onStderr = { chunk ->
+                synchronized(stderrBuf) {
+                    stderrBuf.append(chunk)
+                    var nl = stderrBuf.indexOf("\n")
+                    while (nl >= 0) {
+                        val line = stderrBuf.substring(0, nl)
+                        stderrBuf.delete(0, nl + 1)
+                        onStderrLine(line)
+                        nl = stderrBuf.indexOf("\n")
+                    }
+                }
+            },
             sessionId = SandboxSessions.SYSTEM,
         )
         handle.awaitExit()
@@ -258,10 +277,26 @@ class GgufServerManager(
         } else {
             "${shellQuote(repoOrUrl)} ${shellQuote(quant)}"
         }
-        return decodeOr(
-            runStreaming("pull $args"),
-            GenericResult(ok = false, error = "pull_unparseable"),
-        )
+        val raw = runStreaming("pull $args") { line ->
+            // morsllm emits `PROGRESS <pct> <downloaded> <total>` to stderr each
+            // second during the download. Turn it into a live progress bar.
+            val t = line.trim()
+            if (t.startsWith("PROGRESS ")) {
+                val parts = t.split(" ")
+                val pct = parts.getOrNull(1)?.toIntOrNull()
+                if (pct != null && pct in 0..100) {
+                    _op.value = EngineOp.Running("Downloading model… $pct%", pct / 100f)
+                } else {
+                    // Unknown total: show bytes downloaded, indeterminate bar.
+                    val mb = parts.getOrNull(2)?.toLongOrNull()?.let { it / (1024 * 1024) }
+                    _op.value = EngineOp.Running(
+                        if (mb != null) "Downloading model… $mb MB" else "Downloading model…",
+                        null,
+                    )
+                }
+            }
+        }
+        return decodeOr(raw, GenericResult(ok = false, error = "pull_unparseable"))
     }
 
     suspend fun serve(modelFilename: String, port: Int = 8080): GenericResult {
