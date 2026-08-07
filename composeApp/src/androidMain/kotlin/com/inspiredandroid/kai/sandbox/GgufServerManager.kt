@@ -95,6 +95,11 @@ class GgufServerManager(
         if (r.ok) EngineOp.Done("Stopped") else EngineOp.Failed(r)
     }
 
+    fun startDelete(modelFilename: String) = launchOp("Deleting $modelFilename…") {
+        val r = deleteModel(modelFilename)
+        if (r.ok) EngineOp.Done("Deleted $modelFilename") else EngineOp.Failed(r)
+    }
+
     /** Clear a terminal [EngineOp.Done]/[EngineOp.Failed] back to idle once the UI
      *  has shown it, so it doesn't re-appear on the next visit to the screen. */
     fun acknowledgeOp() {
@@ -308,6 +313,9 @@ class GgufServerManager(
     }
 
     suspend fun stop(): GenericResult = decodeOr(runQuick("stop"), GenericResult(ok = false, error = "stop_unparseable"))
+
+    suspend fun deleteModel(modelFilename: String): GenericResult =
+        decodeOr(runQuick("delete ${shellQuote(modelFilename)}"), GenericResult(ok = false, error = "delete_unparseable"))
 
     /** Read the tail of a log file from inside the sandbox; capped so we don't
      * push huge text into a Compose dialog. Returns empty string if missing. */

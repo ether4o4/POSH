@@ -11,8 +11,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -71,6 +75,7 @@ actual fun PlatformGgufModelsCard() {
     var repoInput by remember { mutableStateOf("") }
     var quantInput by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
+    var modelToDelete by remember { mutableStateOf<String?>(null) }
 
     suspend fun refresh() {
         // Defensive: don't overwrite `status` or `models` with empty/failed
@@ -304,6 +309,16 @@ actual fun PlatformGgufModelsCard() {
                                 onClick = { manager.startServe(m.name) },
                                 modifier = Modifier.handCursor(),
                             ) { Text("Run") }
+                            IconButton(
+                                onClick = { modelToDelete = m.name },
+                                modifier = Modifier.handCursor(),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete ${m.name}",
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
                     }
                 }
@@ -346,6 +361,24 @@ actual fun PlatformGgufModelsCard() {
             result = err,
             manager = manager,
             onDismiss = { manager.acknowledgeOp() },
+        )
+    }
+
+    val pendingDelete = modelToDelete
+    if (pendingDelete != null) {
+        AlertDialog(
+            onDismissRequest = { modelToDelete = null },
+            title = { Text("Delete model?") },
+            text = { Text("Permanently delete \"$pendingDelete\" from the device? You can re-download it later.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    manager.startDelete(pendingDelete)
+                    modelToDelete = null
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { modelToDelete = null }) { Text("Cancel") }
+            },
         )
     }
 }

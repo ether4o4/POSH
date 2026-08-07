@@ -497,6 +497,20 @@ class AppSettings(internal val settings: Settings) {
         settings.putBoolean("$KEY_SKILL_ENABLED_PREFIX$id", enabled)
     }
 
+    // Favorited terminal scripts (ids from TerminalScriptLibrary). Favorites surface as
+    // `/` shortcuts in the terminal. Stored as a comma-separated id list.
+    fun getFavoriteScriptIds(): Set<String> =
+        settings.getString(KEY_FAVORITE_SCRIPTS, "")
+            .split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+
+    fun isScriptFavorite(id: String): Boolean = id in getFavoriteScriptIds()
+
+    fun setScriptFavorite(id: String, favorite: Boolean) {
+        val current = getFavoriteScriptIds().toMutableSet()
+        if (favorite) current.add(id) else current.remove(id)
+        settings.putString(KEY_FAVORITE_SCRIPTS, current.joinToString(","))
+    }
+
     fun getNotificationsStoreJson(): String = settings.getString(KEY_NOTIFICATIONS_STORE, "")
 
     fun setNotificationsStoreJson(json: String) {
@@ -602,6 +616,7 @@ class AppSettings(internal val settings: Settings) {
 
         const val KEY_DEVICE_CONTROL_ENABLED = "device_control_enabled"
         const val KEY_SKILL_ENABLED_PREFIX = "skill_enabled:"
+        const val KEY_FAVORITE_SCRIPTS = "favorite_scripts"
         const val KEY_NOTIFICATIONS_SYNC_STATE = "notifications_sync_state"
         const val KEY_CONFIGURED_SERVICES = "configured_services"
         const val KEY_FREE_FALLBACK_ENABLED = "free_fallback_enabled"

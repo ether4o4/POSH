@@ -837,6 +837,28 @@ cmd_stop() {
     emit '{"ok":true}'
 }
 
+cmd_delete() {
+    local model="${1:-}"
+    if [ -z "$model" ]; then
+        emit '{"ok":false,"error":"missing_model"}'
+        return 1
+    fi
+    # basename guards against path traversal — only files inside MODELS_DIR go.
+    local base; base=$(basename "$model")
+    local path="$MODELS_DIR/$base"
+    if [ ! -f "$path" ]; then
+        emit "{\"ok\":false,\"error\":\"not_found\",\"model\":\"$base\"}"
+        return 1
+    fi
+    # If the model being deleted is the one currently serving, stop it first.
+    if [ -f "$META_FILE" ] && command -v jq >/dev/null 2>&1; then
+        local serving; serving=$(jq -r '.model // ""' "$META_FILE" 2>/dev/null)
+        [ "$serving" = "$base" ] && cmd_stop >/dev/null 2>&1 || true
+    fi
+    rm -f "$path"
+    emit "{\"ok\":true,\"deleted\":\"$base\"}"
+}
+
 cmd_status() {
     local running=false
     local pid=""
@@ -889,6 +911,7 @@ main() {
         list-quants)   cmd_list_quants "$@" ;;
         pull|pull-url) cmd_pull "$@" ;;
         list-models)   cmd_list_models "$@" ;;
+        delete)        cmd_delete "$@" ;;
         serve)         cmd_serve "$@" ;;
         stop)          cmd_stop "$@" ;;
         status)        cmd_status "$@" ;;
