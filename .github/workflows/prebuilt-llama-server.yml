@@ -38,6 +38,22 @@ jobs:
     timeout-minutes: 300
 
     steps:
+      # The `secrets` context is not allowed in step `if:` conditions (doing so is a
+      # workflow validation error / startup_failure), so detect the token once here
+      # and expose a plain non-secret boolean the later steps can gate on. HF_TOKEN
+      # itself stays scoped to only the steps that actually map it — never job-level
+      # env — so third-party actions in between never see it.
+      - name: Detect Hugging Face token
+        id: hfcheck
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -n "${HF_TOKEN:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up QEMU (arm64 binfmt)
         uses: docker/setup-qemu-action@v3
         with:
@@ -107,7 +123,7 @@ jobs:
       # the app's unauthenticated curl can fetch it. The secret is scoped to
       # this step only (not job-level env) so third-party actions never see it.
       - name: Mirror to Hugging Face (public host for the app)
-        if: secrets.HF_TOKEN != ''
+        if: steps.hfcheck.outputs.present == 'true'
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_REPO: Ether4o4/posh-llama-server
@@ -131,6 +147,6 @@ jobs:
           EOF
 
       - name: Warn if HF_TOKEN is missing
-        if: secrets.HF_TOKEN == ''
+        if: steps.hfcheck.outputs.present == 'false'
         run: |
           echo "::warning::HF_TOKEN secret not set — the binary was published to the GitHub release only, which is NOT downloadable by the app while this repo is private. Add an HF_TOKEN repository secret and run the 'Publish llama-server to Hugging Face' workflow."
