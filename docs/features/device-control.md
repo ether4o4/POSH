@@ -2,7 +2,7 @@
 
 **Last verified:** 2026-08-06
 
-POSH can operate the phone on the user's behalf — see what's on screen, tap, long-press, swipe, type into fields, press the system navigation keys, launch apps, and capture the screen. This is POSH's own built-in equivalent of FoneClaw's device actions: the capability lives inside POSH through an accessibility service, not in a separate plugin APK (though the [plugin host](plugins.md) can still bind external FoneClaw plugins on top).
+POSH can operate the phone on the user's behalf — see what's on screen, tap, long-press, swipe, type into fields, press the system navigation keys, launch apps, and capture the screen. This capability is built into POSH through an accessibility service, not a separate plugin APK (though the [plugin host](plugins.md) can still bind external plugins on top).
 
 Device control is **Android-only** and ships in the **FOSS flavor only** (Play Store policy restricts accessibility services and all-apps visibility). On other platforms and the Play build the feature is absent.
 

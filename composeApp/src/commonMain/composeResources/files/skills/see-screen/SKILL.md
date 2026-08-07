@@ -29,4 +29,4 @@ Requires **Device Control** enabled with POSH switched on under Android Accessib
 - Be concise and plain: what it is, what it's asking, what the user can do next.
 - Respect privacy: only read what the user asked about; don't volunteer sensitive on-screen content (codes, balances) unless they asked.
 
-_Adapted for POSH from the FoneClaw open skill set (MIT)._
+_Bundled with POSH._

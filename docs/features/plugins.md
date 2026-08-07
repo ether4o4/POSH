@@ -10,8 +10,8 @@ tool hands the request to the plugin app, which does the work in its own process
 and returns a result.
 
 This lets POSH inherit an existing, installable tool ecosystem instead of building
-every capability in-app. The protocol is wire-compatible with FoneClaw's open
-plugin apps, so those APKs work as POSH plugins unchanged.
+every capability in-app. The protocol is a fixed external wire contract, so
+compatible third-party plugin APKs work as POSH plugins unchanged.
 
 Plugins are **Android-only**. On desktop, web, and iOS the plugin surfaces are
 empty no-ops, so there is nothing to configure there.

@@ -18,8 +18,8 @@ import org.koin.java.KoinJavaComponent.inject
  * fails gracefully with an actionable message when the service isn't enabled, so
  * the model can tell the user to switch it on rather than looping on a dead call.
  *
- * These are the built-in equivalent of FoneClaw's device actions; the plugin host
- * remains available for third-party FoneClaw plugin APKs on top of these.
+ * These are POSH's built-in device actions; the plugin host remains available for
+ * third-party plugin APKs on top of these.
  */
 
 private const val SERVICE_DISABLED_HINT =

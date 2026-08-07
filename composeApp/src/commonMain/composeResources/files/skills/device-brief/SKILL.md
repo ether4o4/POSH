@@ -38,4 +38,4 @@ Use the POSH tools that are actually enabled on this device. Depending on the us
 - Do not change any device settings from this skill.
 - If a source could not be read (permission or feature off), name it in one short line.
 
-_Adapted for POSH from the FoneClaw open skill set (MIT)._
+_Bundled with POSH._

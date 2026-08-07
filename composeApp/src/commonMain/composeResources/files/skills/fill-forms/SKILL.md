@@ -32,4 +32,4 @@ Requires **Device Control** enabled with POSH switched on under Android Accessib
 - Confirm before final submission of anything consequential (payment, account changes).
 - Verify each field after typing — if a value didn't take (autocomplete, formatting), clear and retry once, then report if it still won't stick.
 
-_Adapted for POSH from the FoneClaw open skill set (MIT)._
+_Bundled with POSH._

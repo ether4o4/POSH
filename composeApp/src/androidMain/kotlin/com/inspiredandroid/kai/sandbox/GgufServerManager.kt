@@ -274,7 +274,31 @@ class GgufServerManager(
         ListQuantsResult(ok = false, error = "decode_failed"),
     )
 
-    suspend fun provision(): GenericResult = decodeOr(runStreaming("provision"), GenericResult(ok = false, error = "provision_unparseable"))
+    suspend fun provision(): GenericResult {
+        val raw = runStreaming("provision") { line -> applyProgressLine(line, "Setting up engine") }
+        val r = decodeOr(raw, GenericResult(ok = false, error = "provision_unparseable"))
+        if (r.ok) return r
+        // The streaming call can come back unparseable if it was interrupted (app
+        // backgrounded, shell reset) even though the binary actually installed.
+        // Re-check the real on-disk status before reporting failure — this kills the
+        // spurious provision_unparseable a user otherwise hits on retry.
+        if (status().provisioned) return GenericResult(ok = true)
+        return r
+    }
+
+    /** Parse a `PROGRESS <pct> <cur> <total>` line into a live [EngineOp.Running]. */
+    private fun applyProgressLine(line: String, labelPrefix: String) {
+        val t = line.trim()
+        if (!t.startsWith("PROGRESS ")) return
+        val parts = t.split(" ")
+        val pct = parts.getOrNull(1)?.toIntOrNull() ?: return
+        _op.value = if (pct in 0..100) {
+            EngineOp.Running("$labelPrefix… $pct%", pct / 100f)
+        } else {
+            val mb = parts.getOrNull(2)?.toLongOrNull()?.let { it / (1024 * 1024) }
+            EngineOp.Running(if (mb != null) "$labelPrefix… $mb MB" else "$labelPrefix…", null)
+        }
+    }
 
     suspend fun pull(repoOrUrl: String, quant: String? = null): GenericResult {
         val args = if (quant.isNullOrBlank()) {
@@ -282,25 +306,9 @@ class GgufServerManager(
         } else {
             "${shellQuote(repoOrUrl)} ${shellQuote(quant)}"
         }
-        val raw = runStreaming("pull $args") { line ->
-            // morsllm emits `PROGRESS <pct> <downloaded> <total>` to stderr each
-            // second during the download. Turn it into a live progress bar.
-            val t = line.trim()
-            if (t.startsWith("PROGRESS ")) {
-                val parts = t.split(" ")
-                val pct = parts.getOrNull(1)?.toIntOrNull()
-                if (pct != null && pct in 0..100) {
-                    _op.value = EngineOp.Running("Downloading model… $pct%", pct / 100f)
-                } else {
-                    // Unknown total: show bytes downloaded, indeterminate bar.
-                    val mb = parts.getOrNull(2)?.toLongOrNull()?.let { it / (1024 * 1024) }
-                    _op.value = EngineOp.Running(
-                        if (mb != null) "Downloading model… $mb MB" else "Downloading model…",
-                        null,
-                    )
-                }
-            }
-        }
+        // morsllm emits `PROGRESS <pct> <downloaded> <total>` to stderr each second
+        // during the download; applyProgressLine turns it into a live progress bar.
+        val raw = runStreaming("pull $args") { line -> applyProgressLine(line, "Downloading model") }
         return decodeOr(raw, GenericResult(ok = false, error = "pull_unparseable"))
     }
 
@@ -343,11 +351,33 @@ class GgufServerManager(
             sandbox.status.collect { status ->
                 if (status.ready) {
                     ensureScriptInstalled()
+                    maybeAutoRecoverEngine()
                 } else {
                     scriptInstalled = false
                 }
             }
         }
+    }
+
+    @Volatile
+    private var autoRecoverAttempted = false
+
+    /**
+     * A sandbox reset/reinstall wipes the engine binary (it lives on the rootfs at
+     * /opt) while downloaded models survive under /root. When we come back Ready with
+     * models present but no engine, quietly rebuild it — a ~14 MB download — so the
+     * user doesn't have to notice "not built yet" and tap Set up engine again. One
+     * attempt per app process; if it fails, the manual button is still there.
+     */
+    private suspend fun maybeAutoRecoverEngine() {
+        if (autoRecoverAttempted) return
+        if (_op.value !is EngineOp.Idle) return
+        val st = runCatching { status() }.getOrNull() ?: return
+        if (st.provisioned) return
+        val hasModels = runCatching { listModels().models.isNotEmpty() }.getOrDefault(false)
+        if (!hasModels) return
+        autoRecoverAttempted = true
+        startProvision()
     }
 
     companion object {

@@ -13,7 +13,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Discovers installed FoneClaw-compatible plugin APKs, reads their declared
+ * Discovers installed compatible plugin APKs, reads their declared
  * tool manifests, and exposes their tools to POSH's agent — the same way
  * [com.inspiredandroid.kai.mcp.McpServerManager] exposes MCP tools. Each plugin
  * runs in its own APK/process; POSH binds it on demand via [PluginConnection].

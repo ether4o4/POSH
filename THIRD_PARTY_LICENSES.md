@@ -1,5 +1,17 @@
 # Third-Party Licenses
 
+## Upstream project (Apache-2.0)
+
+POSH is a modified fork of an upstream Kotlin Multiplatform assistant project by Simon Schubert, released under the Apache License 2.0:
+
+- **Source:** https://github.com/SimonSchubert/Kai
+- **License:** Apache-2.0
+- **Copyright:** Copyright the upstream contributors
+
+As required by Apache-2.0 §4, this notice is retained. POSH modifies and extends the upstream code; the changes are summarized in [`README.md`](README.md). The full Apache-2.0 license text is in [`LICENSE.txt`](LICENSE.txt).
+
+## Bundled binaries
+
 This project includes the following third-party binaries in `androidApp/src/main/jniLibs/`:
 
 ## PRoot (Termux fork)

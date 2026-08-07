@@ -3,14 +3,16 @@ package com.inspiredandroid.kai.plugins
 import kotlinx.serialization.json.JsonObject
 
 /**
- * POSH's host side of the FoneClaw-compatible plugin protocol. A plugin is a
- * separate, independently-installed APK that exposes agent tools to POSH over a
- * bound service. POSH discovers such APKs, reads their declared tool manifest,
- * and — when a tool runs — binds the service and calls it over the plugin AIDL
+ * POSH's host side of the external plugin protocol. A plugin is a separate,
+ * independently-installed APK that exposes agent tools to POSH over a bound
+ * service. POSH discovers such APKs, reads their declared tool manifest, and —
+ * when a tool runs — binds the service and calls it over the plugin AIDL
  * contract. This lets POSH inherit an installable tool ecosystem instead of
- * inventing one; it is wire-compatible with FoneClaw's open plugin APKs.
+ * inventing one.
  *
- * Protocol constants (must match the FoneClaw plugin contract exactly):
+ * The constants below are the external wire contract with third-party plugin
+ * APKs. They are fixed identifiers that installed plugins depend on and must NOT
+ * be changed or renamed — doing so would break every existing plugin.
  * - bind action:        ai.android.claw.extension.BIND
  * - bind permission:    ai.android.claw.permission.BIND_EXTENSION
  * - AIDL descriptor:    ai.android.claw.extension.IFoneClawExtensionService
@@ -46,7 +48,7 @@ data class InstalledPlugin(
     val tools: List<PluginToolManifest>,
 )
 
-/** A single tool as declared in a plugin's `foneclaw_extension` manifest JSON. */
+/** A single tool as declared in a plugin's manifest JSON. */
 data class PluginToolManifest(
     val name: String,
     val displayName: String,

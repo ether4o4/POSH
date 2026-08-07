@@ -234,7 +234,7 @@ class SkillManager(
             "create-skill",
             "web-research",
             "device-brief",
-            // Pre-installed FoneClaw-style capability skills (Device Control + Vision).
+            // Pre-installed device-capability skills (Device Control + Vision).
             "drive-apps",
             "see-screen",
             "fill-forms",

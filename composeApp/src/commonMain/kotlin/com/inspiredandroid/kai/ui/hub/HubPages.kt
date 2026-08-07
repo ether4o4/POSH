@@ -368,7 +368,7 @@ fun ModelsScreen(onBack: () -> Unit) {
 @Composable
 fun PluginsScreen(onBack: () -> Unit) {
     HubPageScaffold("PLUGINS", "extend the agent", onBack) {
-        // Android-only: discover FoneClaw-compatible plugin APKs and toggle their
+        // Android-only: discover compatible plugin APKs and toggle their
         // tools into POSH's agent. No-op elsewhere.
         PlatformPluginsCard()
     }

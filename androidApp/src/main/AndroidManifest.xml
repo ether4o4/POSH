@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-   <!-- FoneClaw-compatible plugin host. POSH binds plugin APKs' extension services,
+   <!-- External plugin host. POSH binds plugin APKs' extension services,
         which are protected by this permission. Define it (normal protection) and hold
         it so POSH can bind regardless of which app first declared it, and declare the
         <queries> so plugin services are visible under Android 11+ package filtering. -->

@@ -56,4 +56,4 @@ Stop searching when the answer is supported by reliable sources, additional resu
 - If sources conflict, explain the conflict.
 - If reliable information is not found, say so clearly.
 
-_Adapted for POSH from the FoneClaw open skill set (MIT)._
+_Bundled with POSH._

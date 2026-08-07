@@ -9,7 +9,7 @@
 set -eu
 set -o pipefail
 
-ROOT="${MORSLLM_ROOT:-/root/.morsvitaest/llm}"
+ROOT="${MORSLLM_ROOT:-/root/.posh/llm}"
 # The binary must live on the internal-storage rootfs, NOT under /root:
 # /root is (in the normal configuration) bind-mounted app-external storage,
 # which Android mounts noexec — anything placed there fails with "Permission
@@ -29,6 +29,13 @@ META_FILE="$RUN_DIR/server.json"
 DEFAULT_PORT=8080
 DEFAULT_QUANT_PREFERENCE="Q4_K_M"
 LLAMA_CPP_REPO="https://github.com/ggerganov/llama.cpp"
+
+# One-time migration from the old data dir (the app's former name) so existing
+# model downloads and logs aren't orphaned by the rename to /root/.posh.
+if [ -d "/root/.morsvitaest/llm" ] && [ ! -d "$ROOT" ]; then
+    mkdir -p "$(dirname "$ROOT")"
+    mv "/root/.morsvitaest/llm" "$ROOT" 2>/dev/null || true
+fi
 
 mkdir -p "$BIN_DIR" "$MODELS_DIR" "$BUILD_DIR" "$RUN_DIR" "$LOGS_DIR"
 

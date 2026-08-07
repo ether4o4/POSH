@@ -36,4 +36,4 @@ Requires **Device Control** to be enabled (Settings → Agent → Device Control
 - Never enter passwords, payment details, or 2FA codes on the user's behalf unless they explicitly provide them for that exact step.
 - Keep the user informed: briefly narrate what you did ("opened Settings → tapped Bluetooth → turned it on").
 
-_Adapted for POSH from the FoneClaw open skill set (MIT)._
+_Bundled with POSH._

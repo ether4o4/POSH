@@ -29,8 +29,8 @@ import com.inspiredandroid.kai.ui.handCursor
 import org.koin.compose.koinInject
 
 /**
- * Android plugin host UI: lists installed FoneClaw-compatible plugin APKs and
- * every tool they declare, with a per-tool enable toggle and a rescan button.
+ * Android plugin host UI: lists installed compatible plugin APKs and every tool
+ * they declare, with a per-tool enable toggle and a rescan button.
  * Styled to POSH's black/red scheme via [SettingsCard] and theme colors.
  */
 @Composable
@@ -49,7 +49,7 @@ actual fun PlatformPluginsCard() {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "Install a FoneClaw-compatible plugin APK to give POSH new tools (file manager, media, and more). Discovered tools are enabled by default and appear to the agent automatically.",
+            text = "Install a compatible plugin APK to give POSH new tools (file manager, media, and more). Discovered tools are enabled by default and appear to the agent automatically.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -70,7 +70,7 @@ actual fun PlatformPluginsCard() {
             Spacer(Modifier.height(6.dp))
             val uriHandler = LocalUriHandler.current
             OutlinedButton(
-                onClick = { uriHandler.openUri("https://github.com/FoneClaw-AI/foneclaw-android/tree/main/plugin") },
+                onClick = { uriHandler.openUri("https://github.com/ether4o4/POSH/blob/main/docs/features/plugins.md") },
                 modifier = Modifier.handCursor(),
             ) { Text("Open plugin catalog") }
         }
