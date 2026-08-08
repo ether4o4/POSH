@@ -125,11 +125,17 @@ actual fun PlatformGgufModelsCard() {
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = "Runs any GGUF model in the Linux sandbox. Separate from the service named \"Local Model\" (the built-in Gemma engine) — models here appear in the picker as \"OpenAI-Compatible API\".",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(4.dp))
 
         if (!sandboxStatus.ready) {
             Text(
-                text = "Set up the Alpine Linux sandbox above first — the model engine runs inside it.",
+                text = "Set up the Alpine Linux sandbox first — the model engine runs inside it. Install it from Settings → Linux Sandbox.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -192,7 +198,7 @@ actual fun PlatformGgufModelsCard() {
             // with the current llama.cpp build. Removes the "what do I type"
             // friction for new users — one tap and the right repo id is filled in.
             Text(
-                text = "Quick install — included 1B for instant uncensored chat, or pull a 3B tool-caller (DLC):",
+                text = "Quick install — small models known to work with this engine. The 1B runs on any phone; the 3Bs want ~3 GB free RAM:",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -204,7 +210,7 @@ actual fun PlatformGgufModelsCard() {
                 OutlinedButton(
                     onClick = { repoInput = "mradermacher/Llama-3.2-1B-Instruct-abliterated-GGUF" },
                     modifier = Modifier.weight(1f).handCursor(),
-                ) { Text("Included 1B\n(uncensored • ~0.8GB)", style = MaterialTheme.typography.bodySmall) }
+                ) { Text("Quick 1B\n(uncensored • ~0.8GB)", style = MaterialTheme.typography.bodySmall) }
                 OutlinedButton(
                     onClick = { repoInput = "bartowski/Hermes-3-Llama-3.2-3B-GGUF" },
                     modifier = Modifier.weight(1f).handCursor(),
@@ -225,7 +231,7 @@ actual fun PlatformGgufModelsCard() {
                 colors = outlineTextFieldColors(),
                 supportingText = {
                     Text(
-                        text = "Must be a GGUF repo (e.g. bartowski/…-GGUF or litert-community/…). Vanilla model repos like 'gpt2' don't contain .gguf files and won't work.",
+                        text = "Must be a GGUF repo (e.g. bartowski/…-GGUF or mradermacher/…-GGUF). Vanilla model repos like 'gpt2' don't contain .gguf files and won't work.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 },
@@ -335,7 +341,7 @@ actual fun PlatformGgufModelsCard() {
                         }
                         val instance = existing ?: dataRepository.addConfiguredService(Service.OpenAICompatible.id)
                             .also { dataRepository.updateInstanceBaseUrl(it.instanceId, baseUrl) }
-                        message = "Added OpenAI-Compatible service → open Services to pick the model"
+                        message = "Added — it shows in the service picker as \"OpenAI-Compatible API\" (your local GGUF server). Open Services to pick the model."
                         scope.launch {
                             runCatching { dataRepository.validateConnection(Service.OpenAICompatible, instance.instanceId) }
                         }

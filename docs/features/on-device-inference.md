@@ -1,8 +1,10 @@
 # On-Device Inference (LiteRT)
 
-**Last verified:** 2026-07-25
+**Last verified:** 2026-08-08
 
-Kai can run AI models directly on the user's device using Google's LiteRT LM SDK. This enables fully offline, private inference with no API key, no internet connection, and no cost. Available on **Android**, **Desktop** (macOS, Linux, Windows), and **iOS**.
+POSH can run AI models directly on the user's device using Google's LiteRT LM SDK. This enables fully offline, private inference with no API key, no internet connection, and no cost. Available on **Android**, **Desktop** (macOS, Linux, Windows), and **iOS**. It appears in the service picker as **"Local Model"**.
+
+This is one of **two** local engines: the separate sandbox GGUF engine ([local-models-gguf.md](local-models-gguf.md)) runs arbitrary GGUF models behind a loopback server and appears in the picker as "OpenAI-Compatible API". The two share no models or downloads.
 
 ## How It Works
 
@@ -25,7 +27,7 @@ The application uses **litert-lm's native function calling** (`automaticToolCall
 
 Only a small **allowlist** of tools is exposed on-device, because small Gemma models (2-4B params) struggle to emit valid function-call syntax for tools with many parameters or complex value types, and litert-lm's strict ANTLR parser crashes the call when the syntax is malformed.
 
-The allowlist (in `RemoteDataRepository.LOCAL_TOOL_ALLOWLIST`) currently exposes: `get_local_time`, `get_location_from_ip`, `web_search`, `open_url`, `memory_store`, `memory_forget`, `memory_reinforce`, and `execute_shell_command` (when the user has enabled the shell tool in Settings). Email tools, task scheduling (`schedule_task` / `list_tasks` / `cancel_task`), MCP server tools, structured `memory_learn`, heartbeat-config tools, and `promote_learning` are excluded — they require a remote model.
+The allowlist currently exposes: `get_local_time`, `get_location_from_ip`, `web_search`, `open_url`, `memory_store`, `memory_forget`, `memory_reinforce`, `execute_shell_command` (when the user has enabled the shell tool in Settings), and the simple device-control actions `device_read_screen`, `device_tap`, `device_swipe`, `device_type`, `device_press_key`, and `device_open_app`. Email tools, task scheduling (`schedule_task` / `list_tasks` / `cancel_task`), MCP server tools, structured `memory_learn`, heartbeat-config tools, `promote_learning`, and the screenshot/long-press device actions are excluded — they require a remote model.
 
 **Qwen3 0.6B caveat:** the model is wired to the same allowlist but at 0.6 B params it rarely emits valid function-call syntax — it tends to hallucinate answers (e.g. a fictional time) instead of invoking `get_local_time`. Treat Qwen3 as a chat-only model in practice; pick Gemma 4 E2B/E4B for anything that relies on tools.
 

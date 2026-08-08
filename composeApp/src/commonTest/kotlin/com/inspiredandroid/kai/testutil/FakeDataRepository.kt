@@ -226,6 +226,8 @@ class FakeDataRepository : DataRepository {
         // No-op in tests
     }
 
+    override suspend fun branchConversation(fromMessageId: String): String? = null
+
     override fun loadConversation(id: String) {
         val conversation = savedConversations.value.find { it.id == id } ?: return
         currentConversationId.value = id

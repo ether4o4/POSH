@@ -1,6 +1,6 @@
 # Command-Deck Hub
 
-**Last verified:** 2026-08-06
+**Last verified:** 2026-08-08
 
 POSH launches into a "command deck" home screen instead of a chat-first view: a monospace, black/red HUD with system gauges and a tile grid that routes to every surface of the app. Each tile opens a dedicated full-screen page — not a settings tab.
 
@@ -10,7 +10,7 @@ POSH launches into a "command deck" home screen instead of a chat-first view: a 
 |------|-------------|
 | **CHAT** | The chat screen. |
 | **TERMINAL** | A standalone live shell into the Linux sandbox (full-screen terminal, nothing else). Shows a setup hint if the sandbox isn't running. |
-| **MODELS** | On-device model management: search a Hugging Face repo for GGUF files, download a quant, see all downloaded models, and run one as a local OpenAI-compatible server (Android-only card). |
+| **MODELS** | The sandbox GGUF engine ([local-models-gguf.md](local-models-gguf.md)): set up the engine, download a GGUF from a Hugging Face repo, see all downloaded models, and run one as a local OpenAI-compatible server (Android-only card). Distinct from the LiteRT "Local Model" service managed under Settings → Services. |
 | **SKILLS** | Create, save, and activate skills. A create form (name, description, instructions) writes a skill straight into the sandbox where it hot-reloads and becomes immediately invokable; below it, the installed-skills list with install-from-GitHub/browse and uninstall. |
 | **PLUGINS** | Host compatible plugin apps: list installed plugin APKs and the tools they declare, toggle each tool on/off, and rescan after installing one. Android-only; see [plugins.md](plugins.md). |
 | **PROJECTS** | Start and resume projects. Creating a named project makes a folder under `/root/projects` in the sandbox; the project list is stored persistently in app settings, so it survives sandbox resets. Deleting a project (with confirmation) removes it from the list and deletes its folder. |

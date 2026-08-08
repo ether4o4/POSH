@@ -1,6 +1,6 @@
 # Tools
 
-**Last verified:** 2026-08-06
+**Last verified:** 2026-08-08
 
 Kai's tools feature allows the AI to execute external functions during conversations — web search, notifications, calendar events, shell commands, memory operations, and more. Tools are defined with a schema, executed with safety guards, and managed through per-tool toggles in settings.
 
@@ -214,7 +214,7 @@ Tool availability is controlled at multiple levels:
 - **Per-tool toggles** — individual tools can be enabled or disabled in settings, persisted with a `tool_enabled_` key prefix
 - **Default state** — most tools default to enabled; `execute_shell_command` defaults to disabled
 - **Master-toggle-only** — memory, scheduling, and heartbeat tools have no individual per-tool toggle; they are on whenever their master switch in Settings → Agent is on (heartbeat is bundled with the scheduling switch)
-- **On-device (LiteRT) allowlist** — when the active model is an on-device LiteRT model, only a small allowlist of tools is exposed regardless of which other tools are enabled. The current allowlist is: `get_local_time`, `get_location_from_ip`, `web_search`, `open_url`, `memory_store`, `memory_forget`, `memory_reinforce`, and `execute_shell_command`. Memory tools beyond the three listed, email tools, scheduling tools, and heartbeat tools are not surfaced to local models even when their master switches are on.
+- **Local-model allowlist** — when the active model is on-device (the LiteRT "Local Model" service, or the sandbox GGUF server added as a loopback OpenAI-compatible service), only a small allowlist of tools is exposed regardless of which other tools are enabled. The current allowlist is: `get_local_time`, `get_location_from_ip`, `web_search`, `open_url`, `memory_store`, `memory_forget`, `memory_reinforce`, `execute_shell_command`, `device_read_screen`, `device_tap`, `device_swipe`, `device_type`, `device_press_key`, and `device_open_app`. Memory tools beyond the three listed, email tools, scheduling tools, heartbeat tools, MCP tools, and the screenshot/long-press device actions are not surfaced to local models even when their master switches are on.
 
 The platform layer assembles the final list of available tools by checking all gates and per-tool settings, and only enabled tools are sent to the AI provider.
 

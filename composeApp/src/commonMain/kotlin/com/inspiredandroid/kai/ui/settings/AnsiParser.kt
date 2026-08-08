@@ -32,7 +32,10 @@ private val ansiBrightColors = listOf(
 
 private fun poshSafeTerminalColor(red: Int, green: Int, blue: Int): Color {
     if (blue <= red) return Color(red, green, blue)
-    return if (green >= red) {
+    // green STRICTLY above red → cyan/teal-ish, flatten to neutral. Pure blues
+    // (green == red == 0) must fall through to the red swap below — with >=,
+    // every pure-blue shade rendered white instead of POSH red.
+    return if (green > red) {
         val neutral = maxOf(red, green, blue)
         Color(neutral, neutral, neutral)
     } else {

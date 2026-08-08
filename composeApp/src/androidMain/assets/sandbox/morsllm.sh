@@ -26,6 +26,10 @@ LOGS_DIR="$ROOT/logs"
 LLAMA_SERVER="$BIN_DIR/llama-server"
 PID_FILE="$RUN_DIR/server.pid"
 META_FILE="$RUN_DIR/server.json"
+# cmd_serve mirrors its one JSON result line here so the app can recover the
+# real outcome when the streaming shell connection is severed mid-serve (a
+# model load takes minutes; backgrounding the app is enough to lose the line).
+SERVE_RESULT_FILE="$RUN_DIR/last-serve.json"
 DEFAULT_PORT=8080
 DEFAULT_QUANT_PREFERENCE="Q4_K_M"
 LLAMA_CPP_REPO="https://github.com/ggerganov/llama.cpp"
@@ -57,6 +61,29 @@ require_jq() {
         emit '{"ok":false,"error":"jq_missing","hint":"apk add jq"}'
         exit 1
     }
+}
+
+# The prebuilt provision fast path returns before the apk toolchain section, so
+# a fresh sandbox reaches pull/serve with busybox wget but no curl and no jq —
+# pull then dies with jq_missing and serve's health probe (curl-only before
+# http_ok grew a wget fallback) could never pass. Install the two tiny runtime
+# deps on demand, best-effort: if apk is broken under proot, the wget fallbacks
+# still keep things working.
+ensure_runtime_deps() {
+    command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && return 0
+    log "installing runtime deps (curl, jq)…"
+    apk add --quiet curl jq >/dev/null 2>&1 || true
+}
+
+# Probe a URL for HTTP success with whatever the sandbox has — curl when
+# present, busybox wget otherwise — so a curl-less sandbox can still see the
+# server come healthy instead of always reporting health_timeout.
+http_ok() {
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsS --max-time 3 "$1" >/dev/null 2>&1
+    else
+        wget -q -T 3 -O /dev/null "$1" >/dev/null 2>&1
+    fi
 }
 
 # Download with whatever the sandbox has. A fresh sandbox has busybox wget but
@@ -557,6 +584,7 @@ UI_H_EOF
 }
 
 cmd_list_quants() {
+    ensure_runtime_deps
     require_jq
     local repo="${1:-}"
     if [ -z "$repo" ]; then
@@ -583,6 +611,7 @@ cmd_list_quants() {
 }
 
 cmd_pull() {
+    ensure_runtime_deps
     require_jq
     local target="${1:-}"
     local filter="${2:-}"
@@ -617,7 +646,7 @@ cmd_pull() {
                 (.files | .[0].name) // empty')
         fi
         if [ -z "$chosen" ] || [ "$chosen" = "null" ]; then
-            emit "{\"ok\":false,\"error\":\"no_gguf_in_repo\",\"repo\":\"$target\",\"detail\":\"The HuggingFace repo '$target' does not contain any .gguf files. llama.cpp only loads GGUF format — try a repo like bartowski/Qwen2.5-0.5B-Instruct-GGUF, or convert your model to GGUF first.\",\"hint\":\"Tap 'Tiny' in the Quick install row for a known-working model, OR paste a repo whose name ends in -GGUF.\"}"
+            emit "{\"ok\":false,\"error\":\"no_gguf_in_repo\",\"repo\":\"$target\",\"detail\":\"The HuggingFace repo '$target' does not contain any .gguf files. llama.cpp only loads GGUF format — try a repo like bartowski/Qwen2.5-0.5B-Instruct-GGUF, or convert your model to GGUF first.\",\"hint\":\"Tap 'Quick 1B' in the Quick install row for a known-working model, OR paste a repo whose name ends in -GGUF.\"}"
             return 1
         fi
         filename="$chosen"
@@ -714,7 +743,25 @@ cmd_list_models() {
     emit "{\"ok\":true,\"models\":$out}"
 }
 
+# Every cmd_serve result goes through this: the line reaches stdout for the
+# normal streaming path AND is mirrored to SERVE_RESULT_FILE so the app can
+# recover the true outcome after a severed stream.
+serve_emit() {
+    printf '%s\n' "$1" > "$SERVE_RESULT_FILE" 2>/dev/null || true
+    emit "$1"
+    serve_emitted=1
+}
+
 cmd_serve() {
+    # Catch-all mirroring cmd_provision's: an unexpected exit (set -e tripping,
+    # OOM kill of the script) must still produce a JSON line instead of leaving
+    # the UI staring at serve_unparseable.
+    serve_emitted=0
+    trap '[ "${serve_emitted:-0}" = "1" ] || serve_emit "{\"ok\":false,\"error\":\"serve_crashed\",\"detail\":\"line ${LINENO}\"}"' EXIT
+    # Clear the previous run's result so anything read from the file afterwards
+    # is unambiguously from THIS serve.
+    : > "$SERVE_RESULT_FILE" 2>/dev/null || true
+
     local model="${1:-}"
     local port="$DEFAULT_PORT"
     [ $# -gt 0 ] && shift
@@ -725,19 +772,20 @@ cmd_serve() {
         esac
     done
     if [ -z "$model" ]; then
-        emit '{"ok":false,"error":"missing_model"}'
+        serve_emit '{"ok":false,"error":"missing_model"}'
         return 1
     fi
     local model_path="$MODELS_DIR/$model"
     [ -f "$model_path" ] || model_path="$model"
     if [ ! -f "$model_path" ]; then
-        emit "{\"ok\":false,\"error\":\"model_not_found\",\"model\":\"$model\"}"
+        serve_emit "{\"ok\":false,\"error\":\"model_not_found\",\"model\":\"$model\"}"
         return 1
     fi
     if [ ! -x "$LLAMA_SERVER" ]; then
-        emit '{"ok":false,"error":"not_provisioned","hint":"run: morsllm provision"}'
+        serve_emit '{"ok":false,"error":"not_provisioned","hint":"run: morsllm provision"}'
         return 1
     fi
+    ensure_runtime_deps
 
     # Beginner-friendly RAM preflight. Loading a GGUF needs roughly its on-disk
     # size resident (weights are mmap'd but paged in during inference), plus a
@@ -756,7 +804,7 @@ cmd_serve() {
         if [ "$mem_avail_bytes" -lt "$needed" ]; then
             avail_mb=$((mem_avail_bytes / 1048576))
             model_mb=$((model_bytes / 1048576))
-            emit "{\"ok\":false,\"error\":\"insufficient_memory\",\"detail\":\"This model needs about ${model_mb} MB of free RAM to run, but only ${avail_mb} MB is free right now. Close some background apps and try again, or pick a smaller model.\",\"hint\":\"Low free RAM. Try the 'Included 1B' quick-install model, or a smaller quant (Q4_K_M of a 1-3B model).\"}"
+            serve_emit "{\"ok\":false,\"error\":\"insufficient_memory\",\"detail\":\"This model needs about ${model_mb} MB of free RAM to run, but only ${avail_mb} MB is free right now. Close some background apps and try again, or pick a smaller model.\",\"hint\":\"Low free RAM. Try the 'Quick 1B' install, or a smaller quant (Q4_K_M of a 1-3B model).\"}"
             return 1
         fi
     fi
@@ -813,12 +861,12 @@ EOF
             # log_path also makes the app's error dialog auto-load the full tail.
             local why
             why=$(tail -c 500 "$log_file" 2>/dev/null | tr -d '"\\' | tr '\n\r\t' '   ' | head -c 300)
-            emit "{\"ok\":false,\"error\":\"server_died\",\"detail\":\"$why\",\"log\":\"$log_file\",\"log_path\":\"$log_file\"}"
+            serve_emit "{\"ok\":false,\"error\":\"server_died\",\"detail\":\"$why\",\"log\":\"$log_file\",\"log_path\":\"$log_file\"}"
             return 1
         fi
-        if curl -fsS "http://127.0.0.1:$port/health" >/dev/null 2>&1; then
+        if http_ok "http://127.0.0.1:$port/health"; then
             log "serve: ready"
-            emit "{\"ok\":true,\"pid\":$pid,\"port\":$port,\"model\":\"$model\",\"base_url\":\"http://127.0.0.1:$port/v1\"}"
+            serve_emit "{\"ok\":true,\"pid\":$pid,\"port\":$port,\"model\":\"$model\",\"base_url\":\"http://127.0.0.1:$port/v1\"}"
             return 0
         fi
         sleep 1
@@ -826,8 +874,25 @@ EOF
     done
     local why_timeout
     why_timeout=$(tail -c 500 "$log_file" 2>/dev/null | tr -d '"\\' | tr '\n\r\t' '   ' | head -c 300)
-    emit "{\"ok\":false,\"error\":\"health_timeout\",\"pid\":$pid,\"detail\":\"$why_timeout\",\"log\":\"$log_file\",\"log_path\":\"$log_file\",\"hint\":\"Model not ready after 5 min — it may be too large for this device's free RAM. Try a smaller model or quant.\"}"
+    serve_emit "{\"ok\":false,\"error\":\"health_timeout\",\"pid\":$pid,\"detail\":\"$why_timeout\",\"log\":\"$log_file\",\"log_path\":\"$log_file\",\"hint\":\"Model not ready after 5 min — it may be too large for this device's free RAM. Try a smaller model or quant.\"}"
     return 1
+}
+
+# Lightweight liveness probe for the app: is the served model actually
+# answering /health right now? Lets the app distinguish "process alive but
+# still loading" from "ready" instead of equating pid-alive with ready.
+cmd_health() {
+    local port="$DEFAULT_PORT"
+    if [ -f "$META_FILE" ] && command -v jq >/dev/null 2>&1; then
+        local meta_port
+        meta_port=$(jq -r '.port // empty' "$META_FILE" 2>/dev/null || true)
+        [ -n "$meta_port" ] && port="$meta_port"
+    fi
+    if http_ok "http://127.0.0.1:$port/health"; then
+        emit "{\"ok\":true,\"healthy\":true,\"port\":$port}"
+    else
+        emit "{\"ok\":true,\"healthy\":false,\"port\":$port}"
+    fi
 }
 
 cmd_stop() {
@@ -902,6 +967,7 @@ Usage:
   morsllm serve <filename> [--port P]     Start llama-server (default $DEFAULT_PORT)
   morsllm stop                            Stop the running server
   morsllm status                          JSON status
+  morsllm health                          JSON /health probe of the running server
 
 Storage:
   $MODELS_DIR
@@ -922,6 +988,7 @@ main() {
         serve)         cmd_serve "$@" ;;
         stop)          cmd_stop "$@" ;;
         status)        cmd_status "$@" ;;
+        health)        cmd_health "$@" ;;
         -h|--help)     usage; exit 0 ;;
         "")            usage; exit 1 ;;
         *)             usage; exit 1 ;;

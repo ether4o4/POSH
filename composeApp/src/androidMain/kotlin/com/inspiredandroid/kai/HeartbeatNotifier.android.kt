@@ -27,8 +27,11 @@ private const val CHANNEL_ID = "kai_ai_notifications"
 /**
  * Fixed ID so a new heartbeat report replaces any earlier unread one in the tray
  * instead of piling up. The app only ever has one pending heartbeat conversation.
+ * Must stay distinct from the other fixed IDs (9001 daemon foreground, 9002
+ * model-download foreground) — sharing one makes heartbeats and download
+ * progress clobber each other's notifications.
  */
-private const val HEARTBEAT_NOTIFICATION_ID = 9002
+private const val HEARTBEAT_NOTIFICATION_ID = 9003
 
 actual fun sendHeartbeatNotification(title: String, body: String) {
     val context: Context by inject(Context::class.java)

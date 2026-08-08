@@ -1,6 +1,6 @@
 # Multi-Service
 
-**Last verified:** 2026-07-31
+**Last verified:** 2026-08-08
 
 Kai supports 29 LLM providers (plus a built-in Free tier). Each provider uses one of three API formats: **OpenAI-compatible** (most services), **Gemini native**, or **Anthropic native** -- plus **LiteRT on-device** for local inference. Users can configure multiple service instances, reorder them, and Kai automatically falls back through the chain on failure.
 
@@ -43,9 +43,10 @@ When Free is the only path and the user hits Free FAST/EXPERT rate or quota limi
 7. If a fallback succeeds, the response indicates which service answered
 8. While the chain is being walked, the thinking indicator shows per-attempt status — the name of the service currently being tried, or the reason the previous one failed before moving on — so silent fallbacks are visible to the user
 9. Entries whose context window can't fit the current chat history are skipped during the walk
-10. On-device (Local Model) failures are not silently absorbed — they short-circuit the fallback chain so the user sees the actual error rather than being quietly bumped to a cloud service
-11. On-device entries are also never used as fallback targets: a local model is only tried when it is the primary (first) service in the chain. A cloud-service failure never silently starts a local model load
-12. Certain non-retryable errors (notably Anthropic's "insufficient credits" and quota-exhausted responses from OpenAI-compatible providers) skip further **per-service** retries and fail that service immediately; the fallback chain still continues to the next instance. Only on-device (Local Model) failures short-circuit the entire chain
+10. On-device failures are not silently absorbed — they short-circuit the fallback chain so the user sees the actual error rather than being quietly bumped to a cloud service. "On-device" covers both local engines: the LiteRT "Local Model" service and an OpenAI-Compatible instance pointing at the sandbox GGUF server's loopback endpoint ([local-models-gguf.md](local-models-gguf.md))
+11. On-device entries (either engine) are also never used as fallback targets: a local model is only tried when it is the primary (first) service in the chain. A cloud-service failure never silently starts a local model load or lands the conversation on the phone's GGUF server
+12. Certain non-retryable errors (notably Anthropic's "insufficient credits" and quota-exhausted responses from OpenAI-compatible providers) skip further **per-service** retries and fail that service immediately; the fallback chain still continues to the next instance. Only on-device failures short-circuit the entire chain
+13. A GGUF-server instance additionally gets the trimmed local system prompt, the local tool allowlist, and an honest 4096-token context budget (the server's real window) for history compaction — the same local treatment the LiteRT engine gets, even though it is reached over loopback HTTP
 
 ## API Formats
 

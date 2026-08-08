@@ -130,6 +130,19 @@ internal val LOCAL_TOOL_ALLOWLIST = setOf(
     "device_open_app",
 )
 
+// The base URL the GGUF models card registers for the sandbox llama-server
+// (must match the manager's advertised endpoint). An OpenAI-compatible instance
+// pointing at it IS on-device inference — it just speaks HTTP over loopback
+// instead of JNI — so routing gives it the same local treatment the LiteRT
+// engine gets: trimmed local prompt, small-model tool allowlist, honest context
+// budget, and no silent fallback in either direction.
+internal const val GGUF_LOCAL_BASE_URL = "http://127.0.0.1:8080/v1"
+
+// morsllm launches llama-server with --ctx-size 4096. Without this override the
+// catalog's 100k default let history grow ~25x past what the server can hold,
+// wedging long chats into bad requests instead of triggering compaction.
+private const val GGUF_LOCAL_CONTEXT_WINDOW_TOKENS = 4096
+
 private data class LoopChatResult(
     val textContent: String,
     val reasoningContent: String? = null,
@@ -192,6 +205,14 @@ class RemoteDataRepository(
      */
     private fun getLocalSafeTools(): List<Tool> = getAvailableTools()
         .filter { it.schema.name in LOCAL_TOOL_ALLOWLIST }
+
+    /** True when this OpenAI-compatible instance is the sandbox llama-server —
+     *  on-device inference behind a loopback HTTP endpoint. */
+    private fun isGgufLocalBaseUrl(service: Service, baseUrl: String?): Boolean =
+        service == Service.OpenAICompatible && baseUrl == GGUF_LOCAL_BASE_URL
+
+    private fun isGgufLocalInstance(instanceId: String, service: Service): Boolean =
+        isGgufLocalBaseUrl(service, getInstanceBaseUrl(instanceId, service))
 
     // Per-instance model storage: instanceId -> models flow
     private val modelsByInstance: MutableMap<String, MutableStateFlow<List<SettingsModel>>> = mutableMapOf()
@@ -647,7 +668,18 @@ class RemoteDataRepository(
         }
 
         val creds = instanceCredentials(instanceId, service)
-        val tools = if (supportsTools(creds.modelId)) getAvailableTools() else emptyList()
+        // The sandbox llama-server is on-device inference too: swap in the same
+        // trimmed local prompt and small-model tool allowlist the LiteRT engine
+        // gets. The full remote-grade prompt plus every tool schema overflows a
+        // 1-3B model's 4k context and produces the garbled tool-call loops that
+        // read as "the local model doesn't work".
+        val isGgufLocal = isGgufLocalBaseUrl(service, creds.baseUrl)
+        val effectivePrompt = if (isGgufLocal) getActiveSystemPrompt(SystemPromptVariant.CHAT_LOCAL) else systemPrompt
+        val tools = when {
+            !supportsTools(creds.modelId) -> emptyList()
+            isGgufLocal -> getLocalSafeTools()
+            else -> getAvailableTools()
+        }
 
         return when (service) {
             Service.Gemini -> {
@@ -672,11 +704,11 @@ class RemoteDataRepository(
 
             else -> {
                 if (tools.isNotEmpty()) {
-                    handleOpenAICompatibleChatWithTools(service, creds, messages, tools, systemPrompt, history)
+                    handleOpenAICompatibleChatWithTools(service, creds, messages, tools, effectivePrompt, history)
                 } else {
                     // No tools on this request — strip any historic tool_calls so Groq's strict
                     // validator doesn't see calls to tools we no longer declare.
-                    val openAIMessages = buildOpenAIMessages(service, messages, systemPrompt, creds.modelId, declaredToolNames = emptySet())
+                    val openAIMessages = buildOpenAIMessages(service, messages, effectivePrompt, creds.modelId, declaredToolNames = emptySet())
                     val response = retryApiCall { requests.openAICompatibleChat(service, creds, openAIMessages).getOrThrow() }
                     val message = response.choices.firstOrNull()?.message ?: throw OpenAICompatibleEmptyResponseException()
                     val content = message.effectiveContent ?: throw OpenAICompatibleEmptyResponseException()
@@ -696,6 +728,11 @@ class RemoteDataRepository(
 
     private data class FallbackEntry(val instanceId: String, val service: Service)
 
+    /** On-device entries of either engine: the in-process LiteRT engine or the
+     *  sandbox llama-server. Both get the no-silent-fallback treatment. */
+    private fun isLocalEntry(entry: FallbackEntry): Boolean =
+        entry.service.isOnDevice || isGgufLocalInstance(entry.instanceId, entry.service)
+
     private fun getOrderedFallbackEntries(): List<FallbackEntry> {
         val instances = getConfiguredServiceInstances()
         val entries = instances.map { FallbackEntry(instanceId = it.instanceId, service = Service.fromId(it.serviceId)) }
@@ -711,11 +748,11 @@ class RemoteDataRepository(
         } else {
             entries
         }
-        // On-device models are only tried as the primary service, never as a fallback
-        // target — falling into one would silently start a heavy model load the user
-        // didn't ask for (mirrors the guard that keeps on-device errors from silently
-        // falling back to cloud services).
-        return ordered.filterIndexed { index, entry -> index == 0 || !entry.service.isOnDevice }
+        // On-device models (LiteRT or the sandbox llama-server) are only tried as
+        // the primary service, never as a fallback target — falling into one would
+        // silently start a heavy model load the user didn't ask for (mirrors the
+        // guard that keeps on-device errors from silently falling back to cloud).
+        return ordered.filterIndexed { index, entry -> index == 0 || !isLocalEntry(entry) }
     }
 
     override suspend fun ask(question: String?, files: List<PlatformFile>, uiSubmission: UiSubmission?, activeSkillId: String?) {
@@ -841,7 +878,7 @@ class RemoteDataRepository(
             for ((index, entry) in fallbackEntries.withIndex()) {
                 // Skip fallback services whose context window is too small for the current history
                 // On-device models handle their own context limits, so skip this check for them
-                if (!entry.service.isOnDevice) {
+                if (!isLocalEntry(entry)) {
                     val creds = instanceCredentials(entry.instanceId, entry.service)
                     val entryWindowChars = ModelCatalog.estimateContextWindow(creds.modelId) * ESTIMATED_CHARS_PER_TOKEN
                     if (historyChars > entryWindowChars) {
@@ -862,8 +899,10 @@ class RemoteDataRepository(
                     askWithService(entry.service, messages, systemPrompt, entry.instanceId)
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
-                    // On-device services should not silently fall back — surface the error
-                    if (entry.service.isOnDevice) throw e
+                    // On-device services (either engine) should not silently fall
+                    // back — a "local" chat must never quietly re-send its content
+                    // to a cloud provider. Surface the error instead.
+                    if (isLocalEntry(entry)) throw e
                     lastException = e
                     _fallbackStatus.value = FallbackStatus(
                         serviceName = entry.service.displayName,
@@ -909,7 +948,11 @@ class RemoteDataRepository(
         systemPrompt: String? = null,
         history: MutableStateFlow<List<History>> = chatHistory,
     ): AssistantTurn {
-        val contextWindowTokens = ModelCatalog.estimateContextWindow(credentials.modelId)
+        val contextWindowTokens = if (isGgufLocalBaseUrl(service, credentials.baseUrl)) {
+            GGUF_LOCAL_CONTEXT_WINDOW_TOKENS
+        } else {
+            ModelCatalog.estimateContextWindow(credentials.modelId)
+        }
         val declaredToolNames = tools.map { it.schema.name }.toSet()
         val strategy = object : ToolLoopStrategy {
             override suspend fun chat(history: List<History>, systemPrompt: String?): LoopChatResult {
@@ -1358,7 +1401,13 @@ class RemoteDataRepository(
         val firstInstance = getConfiguredServiceInstances().firstOrNull() ?: return
         val service = Service.fromId(firstInstance.serviceId)
         val modelId = appSettings.getSelectedModelId(service)
-        val contextWindowTokens = ModelCatalog.estimateContextWindow(modelId)
+        val contextWindowTokens = if (isGgufLocalInstance(firstInstance.instanceId, service)) {
+            // The sandbox llama-server runs at ctx 4096 regardless of what the
+            // catalog thinks of the model id — compact against the real budget.
+            GGUF_LOCAL_CONTEXT_WINDOW_TOKENS
+        } else {
+            ModelCatalog.estimateContextWindow(modelId)
+        }
 
         val history = chatHistory.value.filter { it.role != History.Role.TOOL_EXECUTING }
         val systemPromptChars = getActiveSystemPrompt()?.length ?: 0

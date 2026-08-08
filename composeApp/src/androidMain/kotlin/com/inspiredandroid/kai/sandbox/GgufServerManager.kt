@@ -312,34 +312,117 @@ class GgufServerManager(
         return decodeOr(raw, GenericResult(ok = false, error = "pull_unparseable"))
     }
 
+    @Serializable
+    data class HealthResult(
+        val ok: Boolean = false,
+        val healthy: Boolean = false,
+        val port: Int = DEFAULT_PORT,
+    )
+
+    /** Is the served model actually answering /health right now? Distinguishes
+     *  "process alive but still loading" from "ready". */
+    suspend fun health(): Boolean = decodeOr(runQuick("health"), HealthResult()).healthy
+
     suspend fun serve(modelFilename: String, port: Int = 8080): GenericResult {
         val portArg = if (port == DEFAULT_PORT) "" else " --port $port"
+        // Clear the previous serve's mirrored result up front (the script also
+        // truncates it) so anything recovered from the file afterwards is
+        // unambiguously from THIS run.
+        sandbox.executeCommand("rm -f $SERVE_RESULT_PATH", SandboxSessions.SYSTEM)
         val r = decodeOr(
             runStreaming("serve ${shellQuote(modelFilename)}$portArg"),
             GenericResult(ok = false, error = "serve_unparseable"),
         )
         if (r.ok) return r
-        // llama-server is launched detached (nohup) and its pid file is written
-        // immediately, but the model can take minutes to load — plenty of time for
-        // the app to be backgrounded and the streaming shell connection severed,
-        // losing the final JSON line while the server itself comes up fine. Before
-        // reporting failure, re-check the real process state — same cure
-        // provision() got for its spurious provision_unparseable.
         if (r.error == "serve_unparseable") {
-            repeat(4) { attempt ->
-                val st = runCatching { status() }.getOrNull()
-                if (st != null && st.running && (st.model.isEmpty() || st.model == modelFilename)) {
-                    return GenericResult(
-                        ok = true,
-                        model = st.model.ifEmpty { modelFilename },
-                        port = st.port.toIntOrNull() ?: port,
-                        baseUrl = st.baseUrl.ifEmpty { "http://127.0.0.1:$port/v1" },
-                    )
-                }
-                if (attempt < 3) kotlinx.coroutines.delay(4000)
-            }
+            // The streaming shell connection was severed (app backgrounded during
+            // a multi-minute model load, shell reset) — the script and the
+            // detached llama-server may both still be alive and fine. Recover the
+            // real outcome: the script mirrors its final JSON to a result file,
+            // and process liveness + /health are directly observable.
+            val recovered = recoverServeOutcome(modelFilename, port, useResultFile = true, deadlineMs = 240_000L)
+            if (recovered != null) return recovered
+            return r.copy(
+                detail = r.detail ?: "The serve command's output was lost (the sandbox shell connection was interrupted) and the server did not come up afterwards. The log below usually shows why.",
+                logPath = r.logPath ?: SERVER_LOG_PATH,
+            )
+        }
+        if (r.error == "health_timeout") {
+            // The script gave up after 5 minutes but deliberately left the server
+            // loading. Give it a bounded extra window; if it comes healthy, this
+            // serve SUCCEEDED. If not, stop it so the UI and reality agree —
+            // previously this path showed a Failed dialog while a zombie server
+            // kept loading, and the natural retry tap killed it moments before
+            // it would have finished.
+            val recovered = recoverServeOutcome(modelFilename, port, useResultFile = false, deadlineMs = 180_000L)
+            if (recovered != null) return recovered
+            runCatching { stop() }
+            return r
         }
         return r
+    }
+
+    /**
+     * After a serve whose stream result was lost ([useResultFile]) or that timed
+     * out waiting for health: watch the result file, the process, and the /health
+     * endpoint until [deadlineMs]. Returns a definitive result — success once the
+     * server answers /health, the script's own recovered verdict, or a diagnosed
+     * server death — or null when nothing conclusive emerged before the deadline.
+     */
+    private suspend fun recoverServeOutcome(
+        modelFilename: String,
+        port: Int,
+        useResultFile: Boolean,
+        deadlineMs: Long,
+    ): GenericResult? {
+        val deadline = System.currentTimeMillis() + deadlineMs
+        var notRunningStreak = 0
+        while (System.currentTimeMillis() < deadline) {
+            if (useResultFile) {
+                val raw = sandbox.executeCommand("cat $SERVE_RESULT_PATH 2>/dev/null", SandboxSessions.SYSTEM).trim()
+                if (raw.isNotBlank()) {
+                    val fromFile = decodeOr(raw, GenericResult(ok = false, error = null))
+                    // The script finished and wrote its verdict; trust it. (ok
+                    // results carry the model name — require the match so a
+                    // half-written or foreign line can't claim success.)
+                    if (fromFile.ok && (fromFile.model == null || fromFile.model == modelFilename)) return fromFile
+                    if (!fromFile.ok && fromFile.error != null) return fromFile
+                }
+            }
+            val st = runCatching { status() }.getOrNull()
+            if (st != null) {
+                if (st.running && (st.model.isEmpty() || st.model == modelFilename)) {
+                    notRunningStreak = 0
+                    if (runCatching { health() }.getOrDefault(false)) {
+                        return GenericResult(
+                            ok = true,
+                            model = st.model.ifEmpty { modelFilename },
+                            port = st.port.toIntOrNull() ?: port,
+                            baseUrl = st.baseUrl.ifEmpty { "http://127.0.0.1:$port/v1" },
+                        )
+                    }
+                    // Alive but not healthy yet: still loading — keep waiting.
+                } else {
+                    // Not running: either the script hasn't launched it yet or the
+                    // server died. A persistent streak with no result file means dead.
+                    notRunningStreak++
+                    if (notRunningStreak >= 3) {
+                        return if (useResultFile) {
+                            GenericResult(
+                                ok = false,
+                                error = "server_died",
+                                detail = "The server process exited while loading. The log below usually says why (corrupt model file, out of memory).",
+                                logPath = SERVER_LOG_PATH,
+                            )
+                        } else {
+                            null
+                        }
+                    }
+                }
+            }
+            kotlinx.coroutines.delay(5_000L)
+        }
+        return null
     }
 
     suspend fun stop(): GenericResult = decodeOr(runQuick("stop"), GenericResult(ok = false, error = "stop_unparseable"))
@@ -354,9 +437,31 @@ class GgufServerManager(
         sessionId = SandboxSessions.SYSTEM,
     )
 
-    private inline fun <reified T> decodeOr(raw: String, fallback: T): T = runCatching {
-        if (raw.isBlank()) fallback else json.decodeFromString<T>(raw)
-    }.getOrDefault(fallback)
+    private inline fun <reified T> decodeOr(raw: String, fallback: T): T {
+        // The shell layer can append lifecycle noise to otherwise-valid JSON
+        // ("Shell session ended", "Exit code: 1", a mid-string truncation
+        // marker), and quick commands don't pre-filter to the JSON line the way
+        // the streaming path does. Try progressively narrower slices before
+        // giving up, so real results aren't misreported as *_unparseable.
+        for (candidate in jsonCandidates(raw)) {
+            runCatching { return json.decodeFromString<T>(candidate) }
+        }
+        return fallback
+    }
+
+    private fun jsonCandidates(raw: String): List<String> {
+        val t = raw.trim()
+        if (t.isEmpty()) return emptyList()
+        val out = mutableListOf(t)
+        t.lines().lastOrNull { it.trim().startsWith("{") }?.trim()?.let { if (it != t) out.add(it) }
+        val first = t.indexOf('{')
+        val last = t.lastIndexOf('}')
+        if (first in 0 until last) {
+            val slice = t.substring(first, last + 1)
+            if (slice != t) out.add(slice)
+        }
+        return out
+    }
 
     private fun shellQuote(s: String): String = "'" + s.replace("'", "'\\''") + "'"
 
@@ -407,5 +512,10 @@ class GgufServerManager(
         private const val SCRIPT_PATH = "/usr/local/bin/morsllm"
         private const val SETUP_SCRIPT_PATH = "/usr/local/bin/morsllm-setup"
         private const val SCRIPT_INSTALL_FAILED_JSON = """{"ok":false,"error":"script_install_failed"}"""
+
+        // Mirror of morsllm.sh's default layout (ROOT=/root/.posh/llm). Used only
+        // for post-failure recovery reads and error-dialog log loading.
+        private const val SERVE_RESULT_PATH = "/root/.posh/llm/run/last-serve.json"
+        private const val SERVER_LOG_PATH = "/root/.posh/llm/logs/server.log"
     }
 }
