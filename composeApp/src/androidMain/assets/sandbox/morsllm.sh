@@ -30,6 +30,7 @@ META_FILE="$RUN_DIR/server.json"
 # real outcome when the streaming shell connection is severed mid-serve (a
 # model load takes minutes; backgrounding the app is enough to lose the line).
 SERVE_RESULT_FILE="$RUN_DIR/last-serve.json"
+WATCHDOG_PID_FILE="$RUN_DIR/watchdog.pid"
 DEFAULT_PORT=8080
 DEFAULT_QUANT_PREFERENCE="Q4_K_M"
 LLAMA_CPP_REPO="https://github.com/ggerganov/llama.cpp"
@@ -799,12 +800,15 @@ cmd_serve() {
     mem_avail_kb=$(awk '/^MemAvailable:/{print $2; exit}' /proc/meminfo 2>/dev/null || echo 0)
     mem_avail_bytes=$((mem_avail_kb * 1024))
     if [ "$model_bytes" -gt 0 ] && [ "$mem_avail_bytes" -gt 0 ]; then
-        # model + ~1/6 headroom for the KV cache and runtime at ctx 4096.
-        needed=$((model_bytes + model_bytes / 6))
+        # model + ~1/6 for the KV cache and runtime at ctx 4096, + a flat 400 MB
+        # for the app itself. Without the flat term a borderline model passes the
+        # check, loads, and then Android's low-memory killer takes down the whole
+        # app process group mid-chat — experienced as the app "force closing".
+        needed=$((model_bytes + model_bytes / 6 + 419430400))
         if [ "$mem_avail_bytes" -lt "$needed" ]; then
             avail_mb=$((mem_avail_bytes / 1048576))
-            model_mb=$((model_bytes / 1048576))
-            serve_emit "{\"ok\":false,\"error\":\"insufficient_memory\",\"detail\":\"This model needs about ${model_mb} MB of free RAM to run, but only ${avail_mb} MB is free right now. Close some background apps and try again, or pick a smaller model.\",\"hint\":\"Low free RAM. Try the 'Quick 1B' install, or a smaller quant (Q4_K_M of a 1-3B model).\"}"
+            model_mb=$((needed / 1048576))
+            serve_emit "{\"ok\":false,\"error\":\"insufficient_memory\",\"detail\":\"This model needs about ${model_mb} MB of free RAM to run safely (model plus working headroom), but only ${avail_mb} MB is free right now. Close some background apps and try again, or pick a smaller model.\",\"hint\":\"Low free RAM. Try the 'Quick 1B' install, or a smaller quant (Q4_K_M of a 1-3B model).\"}"
             return 1
         fi
     fi
@@ -849,6 +853,30 @@ cmd_serve() {
     cat > "$META_FILE" <<EOF
 {"pid":$pid,"port":$port,"model":"$model","model_path":"$model_path","started":"$(date -u +%FT%TZ)"}
 EOF
+
+    # Battery/RAM guard: llama-server would otherwise sit resident with the
+    # whole model in RAM until an explicit Stop — draining the phone and inviting
+    # the low-memory killer. Every request the server handles appends to
+    # server.log, so its mtime tracks activity; this detached watchdog wakes
+    # once a minute and stops a server that has been idle for 30 minutes.
+    # Tapping Run starts it again. The whole subshell is detached from the
+    # calling shell's fds so it can't die of SIGPIPE after the stream ends.
+    (
+        while kill -0 "$pid" 2>/dev/null; do
+            sleep 60
+            now=$(date +%s)
+            mt=$(stat -c %Y "$log_file" 2>/dev/null || echo "$now")
+            if [ $((now - mt)) -gt 1800 ]; then
+                kill "$pid" 2>/dev/null || true
+                sleep 1
+                kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
+                rm -f "$PID_FILE" "$META_FILE"
+                break
+            fi
+        done
+        rm -f "$WATCHDOG_PID_FILE"
+    ) >/dev/null 2>&1 </dev/null &
+    echo $! > "$WATCHDOG_PID_FILE"
 
     log "serve: waiting for /health (large models can take a few minutes to load)"
     local elapsed=0
@@ -896,6 +924,12 @@ cmd_health() {
 }
 
 cmd_stop() {
+    # Retire the idle watchdog first so it can't race the manual stop.
+    if [ -f "$WATCHDOG_PID_FILE" ]; then
+        local wpid; wpid=$(cat "$WATCHDOG_PID_FILE" 2>/dev/null || echo "")
+        [ -n "$wpid" ] && kill "$wpid" 2>/dev/null || true
+        rm -f "$WATCHDOG_PID_FILE"
+    fi
     if [ -f "$PID_FILE" ]; then
         local pid; pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
         if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then

@@ -154,6 +154,11 @@ actual fun PlatformGgufModelsCard() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
             )
+            Text(
+                text = "Auto-stops after 30 min without use to save battery and RAM — tap Run to start it again.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         Spacer(Modifier.height(12.dp))
