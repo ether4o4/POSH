@@ -2,9 +2,7 @@
 
 A personal AI assistant built around a **full-permission Linux shell** and **on-device local models** — run real shell commands and GGUF models from Hugging Face right on your phone, no root required. Runs on Android, iOS, Windows, macOS, Linux, and Web (the shell + local-GGUF features are Android-only).
 
-## What POSH adds over its base
 
-POSH is a fork of [**Kai 9000**](https://github.com/SimonSchubert/Kai) by Simon Schubert. On top of Kai's assistant, memory, sandbox, and skills, POSH adds:
 
 - **On-device GGUF models** — build `llama.cpp`'s server inside the Linux sandbox, pull a `.gguf` from a Hugging Face repo id or URL, and serve it locally as an OpenAI-compatible endpoint. No Ollama, no terminal typing required.
 - **Hardened shell** — longer command timeouts (up to 30 min), automatic `PIP_BREAK_SYSTEM_PACKAGES` so `pip install` works in Alpine, and tool guidance that runs full multi-step scripts in one shot (Alpine `apk`, not Termux `pkg`).
