@@ -21,7 +21,24 @@ data class SkillManifest(
     val isBuiltIn: Boolean = false,
     /** Packages the skill declares (bare = Alpine `apk`, `pip:` prefix = Python). */
     val dependencies: List<String> = emptyList(),
+    /** Grouping label for the Skills page (from the optional `category:` frontmatter key). */
+    val category: String = SkillCategories.GENERAL,
+    /** Whether the skill is switched on. A disabled skill stays listed (with its toggle
+     *  off) but is not offered for `/`-invocation, so its instructions never inject. */
+    val enabled: Boolean = true,
 )
+
+/** Well-known skill categories used to group the pre-installed capability skills. */
+object SkillCategories {
+    const val DEVICE_CONTROL = "Device Control"
+    const val VISION = "Vision"
+    const val RESEARCH = "Research"
+    const val DAILY = "Daily"
+    const val GENERAL = "General"
+
+    /** Display order for category section headers; unknown categories sort last, alphabetically. */
+    val order = listOf(DEVICE_CONTROL, VISION, RESEARCH, DAILY, GENERAL)
+}
 
 /** Where a skill is downloaded from when installing into the sandbox. */
 sealed class SkillSource {

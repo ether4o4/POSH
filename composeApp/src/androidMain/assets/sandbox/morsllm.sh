@@ -9,8 +9,16 @@
 set -eu
 set -o pipefail
 
-ROOT="${MORSLLM_ROOT:-/root/.morsvitaest/llm}"
-BIN_DIR="$ROOT/bin"
+ROOT="${MORSLLM_ROOT:-/root/.posh/llm}"
+# The binary must live on the internal-storage rootfs, NOT under /root:
+# /root is (in the normal configuration) bind-mounted app-external storage,
+# which Android mounts noexec — anything placed there fails with "Permission
+# denied" at launch regardless of its mode bits (the kernel refuses to map
+# it executable). Models and logs are plain data reads, which noexec allows,
+# so they stay under /root where the user can browse them from the Files
+# tab. Tradeoff: /opt is part of the rootfs, so a sandbox reset wipes the
+# binary (provision just re-downloads ~14 MB) while models in /root survive.
+BIN_DIR="${MORSLLM_BIN_DIR:-/opt/morsllm/bin}"
 MODELS_DIR="$ROOT/models"
 BUILD_DIR="$ROOT/build"
 RUN_DIR="$ROOT/run"
@@ -21,6 +29,13 @@ META_FILE="$RUN_DIR/server.json"
 DEFAULT_PORT=8080
 DEFAULT_QUANT_PREFERENCE="Q4_K_M"
 LLAMA_CPP_REPO="https://github.com/ggerganov/llama.cpp"
+
+# One-time migration from the old data dir (the app's former name) so existing
+# model downloads and logs aren't orphaned by the rename to /root/.posh.
+if [ -d "/root/.morsvitaest/llm" ] && [ ! -d "$ROOT" ]; then
+    mkdir -p "$(dirname "$ROOT")"
+    mv "/root/.morsvitaest/llm" "$ROOT" 2>/dev/null || true
+fi
 
 mkdir -p "$BIN_DIR" "$MODELS_DIR" "$BUILD_DIR" "$RUN_DIR" "$LOGS_DIR"
 
@@ -42,6 +57,40 @@ require_jq() {
         emit '{"ok":false,"error":"jq_missing","hint":"apk add jq"}'
         exit 1
     }
+}
+
+# Download with whatever the sandbox has. A fresh sandbox has busybox wget but
+# no curl (curl is only installed later in provision's apk step), so the
+# prebuilt fast path must not assume curl exists.
+fetch_url() {
+    local url="$1" dest="$2"
+    if command -v curl >/dev/null 2>&1; then
+        # Stall detection rather than a hard total cap: don't abort a
+        # healthy-but-slow mobile download of the ~14 MB binary, but fail fast
+        # on dead hosts (connect timeout) and transfers stalled below 1 KB/s
+        # for 30s.
+        curl -fsSL --connect-timeout 15 --speed-limit 1024 --speed-time 30 -o "$dest" "$url"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q -T 60 -O "$dest" "$url"
+    else
+        return 1
+    fi
+}
+
+# True if the file looks like a runnable aarch64 build: either it executes, or
+# it has ELF magic on an aarch64 machine. The direct exec check alone is not
+# enough — proot's exec emulation sometimes refuses freshly-written binaries
+# even though they are fine, which used to dump users into a 30-min source
+# compile despite a good prebuilt download.
+looks_runnable() {
+    local f="$1"
+    [ -s "$f" ] || return 1
+    if "$f" --version >/dev/null 2>&1; then
+        return 0
+    fi
+    local magic
+    magic=$(od -An -tx1 -N4 "$f" 2>/dev/null | tr -d ' \n')
+    [ "$magic" = "7f454c46" ] && [ "$(uname -m)" = "aarch64" ]
 }
 
 # Walk every triplet-prefixed binary in /usr/bin and create the short
@@ -156,6 +205,33 @@ cmd_provision() {
     provision_emitted=0
     trap '[ "${provision_emitted:-0}" = "1" ] || emit "{\"ok\":false,\"error\":\"provision_crashed\",\"detail\":\"line ${LINENO}\"}"' EXIT
 
+    # One-time migration: earlier builds kept the binary under /root, which is
+    # noexec (see BIN_DIR comment above), so a fully-downloaded, fully-valid
+    # llama-server could sit there and still refuse to launch. If one is
+    # stranded at the legacy path, copy it into the exec-capable location and
+    # reuse it instead of re-downloading. Same-file guard: with MORSLLM_BIN_DIR
+    # pointed at the legacy dir the two paths alias, and "migrating" would
+    # validate the binary then delete it.
+    legacy_bin="$ROOT/bin/llama-server"
+    if [ "$legacy_bin" != "$LLAMA_SERVER" ] && [ ! "$legacy_bin" -ef "$LLAMA_SERVER" ] \
+        && [ ! -x "$LLAMA_SERVER" ] && [ -s "$legacy_bin" ]; then
+        mkdir -p "$BIN_DIR"
+        cp "$legacy_bin" "$LLAMA_SERVER" 2>/dev/null || true
+        chmod 755 "$LLAMA_SERVER" 2>/dev/null || true
+        if "$LLAMA_SERVER" --version >/dev/null 2>&1; then
+            log "provision: migrated legacy binary from $legacy_bin"
+            rm -f "$legacy_bin"
+            emit "{\"ok\":true,\"migrated\":true,\"path\":\"$LLAMA_SERVER\"}"
+            provision_emitted=1
+            return 0
+        else
+            # The new location is exec-capable, so a failed exec check means
+            # the file itself is bad — drop both copies or every future
+            # provision re-attempts this dead migration.
+            rm -f "$LLAMA_SERVER" "$legacy_bin"
+        fi
+    fi
+
     # Fast path: try downloading the pre-built llama-server binary from the
     # public Hugging Face mirror (GitHub release URLs as fallbacks). Cuts
     # provision time from 10-30 min compile-in-proot to <1 minute download +
@@ -177,24 +253,22 @@ cmd_provision() {
             "https://github.com/ether4o4/POSH/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl" \
             "https://github.com/ether4o4/posh/releases/download/llama-server-prebuilt-latest/llama-server-aarch64-musl"; do
             log "provision: trying pre-built binary at $prebuilt_url"
-            # Stall detection instead of a hard total-time cap: --max-time 120
-            # would abort a healthy-but-slow mobile download of this ~14 MB
-            # binary and silently dump the user into the 10-30 min source
-            # compile. Fail fast on dead hosts (connect timeout) and on
-            # transfers that drop below 1 KB/s for 30s, but let a slow steady
-            # download finish.
-            if curl -fsSL --connect-timeout 15 --speed-limit 1024 --speed-time 30 \
-                -o "$LLAMA_SERVER.tmp" "$prebuilt_url" 2>/dev/null \
+            # fetch_url prefers curl (stall-detection flags) and falls back to
+            # busybox wget on a fresh sandbox that has no curl yet; looks_runnable
+            # accepts either a successful --version or ELF magic on aarch64, since
+            # proot's exec emulation occasionally refuses a freshly-written but
+            # valid binary.
+            if fetch_url "$prebuilt_url" "$LLAMA_SERVER.tmp" 2>/dev/null \
                 && [ -s "$LLAMA_SERVER.tmp" ]; then
                 chmod 755 "$LLAMA_SERVER.tmp"
-                if "$LLAMA_SERVER.tmp" --version >/dev/null 2>&1; then
+                if looks_runnable "$LLAMA_SERVER.tmp"; then
                     mv "$LLAMA_SERVER.tmp" "$LLAMA_SERVER"
                     log "provision: pre-built binary installed -> $LLAMA_SERVER"
                     emit "{\"ok\":true,\"prebuilt\":true,\"path\":\"$LLAMA_SERVER\"}"
                     provision_emitted=1
                     return 0
                 else
-                    log "provision: pre-built binary downloaded but exec check failed, trying next source"
+                    log "provision: pre-built binary downloaded but validity check failed, trying next source"
                     rm -f "$LLAMA_SERVER.tmp"
                 fi
             else
@@ -203,6 +277,19 @@ cmd_provision() {
             fi
         done
         log "provision: no pre-built binary available, falling back to source compile"
+    fi
+
+    # Short-circuit BEFORE the apk toolchain section: a valid binary already
+    # in place (pre-seeded manually, migrated above with the emit skipped, or
+    # left from a prior provision) needs no compilers. Without this, a phone
+    # provisioned via the prebuilt path would pointlessly attempt a
+    # multi-hundred-MB build-base install — and report failure if offline —
+    # despite having a perfectly working engine.
+    if [ -x "$LLAMA_SERVER" ]; then
+        log "provision: llama-server already present at $LLAMA_SERVER"
+        emit "{\"ok\":true,\"already_built\":true,\"path\":\"$LLAMA_SERVER\"}"
+        provision_emitted=1
+        return 0
     fi
 
     apk_log="$LOGS_DIR/apk.log"
@@ -313,13 +400,6 @@ cmd_provision() {
             return 1
         fi
         log "provision: tar fallback succeeded; g++ now functional"
-    fi
-
-    if [ -x "$LLAMA_SERVER" ]; then
-        log "provision: llama-server already built at $LLAMA_SERVER"
-        emit "{\"ok\":true,\"already_built\":true,\"path\":\"$LLAMA_SERVER\"}"
-        provision_emitted=1
-        return 0
     fi
 
     local src="$BUILD_DIR/llama.cpp"
@@ -546,15 +626,58 @@ cmd_pull() {
 
     local dest="$MODELS_DIR/$filename"
     mkdir -p "$(dirname "$dest")"
-    log "pull: $file_url -> $dest"
-    # -C - resumes partials; --fail returns nonzero on HTTP errors instead of
-    # writing the error page into the .gguf file.
-    if ! curl -L -C - --fail --silent --show-error \
+
+    # Resolve the expected total size so we can (a) drive a real progress bar and
+    # (b) detect a truncated download. Prefer the size the HF tree API already gave
+    # us for a repo pull; fall back to a HEAD request for a direct URL.
+    local total=0
+    if [ -n "${chosen:-}" ] && [ -n "${quants_json:-}" ]; then
+        total=$(echo "$quants_json" | jq -r --arg n "$chosen" '.files[] | select(.name==$n) | .size' 2>/dev/null | head -1)
+    fi
+    case "${total:-}" in
+        ''|null|0)
+            total=$(curl -sIL --max-time 30 ${HF_TOKEN:+-H "Authorization: Bearer $HF_TOKEN"} "$file_url" 2>/dev/null \
+                | grep -i '^content-length:' | tail -1 | tr -dc '0-9')
+            ;;
+    esac
+    [ -z "${total:-}" ] && total=0
+
+    log "pull: $file_url -> $dest (expected ${total} bytes)"
+
+    # Download in the background so we can poll the partial file and emit PROGRESS
+    # lines the app parses into a real progress bar. -C - resumes a partial file,
+    # so a re-tap after an interruption continues instead of restarting; --fail
+    # avoids writing an HTTP error page into the .gguf.
+    curl -L -C - --fail --silent --show-error \
         ${HF_TOKEN:+-H "Authorization: Bearer $HF_TOKEN"} \
-        -o "$dest" "$file_url" >&2; then
-        log "pull: curl failed"
-        # Don't delete on resumable failure — caller can retry and continue.
-        emit "{\"ok\":false,\"error\":\"download_failed\",\"file\":\"$filename\"}"
+        -o "$dest" "$file_url" >&2 &
+    local cpid=$!
+    local last_pct=-1
+    while kill -0 "$cpid" 2>/dev/null; do
+        local cur pct
+        cur=$(stat -c %s "$dest" 2>/dev/null || echo 0)
+        if [ "$total" -gt 0 ] 2>/dev/null; then
+            pct=$((cur * 100 / total))
+            [ "$pct" -gt 100 ] && pct=100
+            if [ "$pct" != "$last_pct" ]; then
+                printf 'PROGRESS %d %d %d\n' "$pct" "$cur" "$total" >&2
+                last_pct=$pct
+            fi
+        else
+            printf 'PROGRESS -1 %d 0\n' "$cur" >&2
+        fi
+        sleep 1
+    done
+    local rc=0
+    wait "$cpid" || rc=$?
+
+    local final_sz
+    final_sz=$(stat -c %s "$dest" 2>/dev/null || echo 0)
+
+    if [ "$rc" != "0" ]; then
+        log "pull: curl failed (rc=$rc)"
+        # Keep the partial — a re-tap resumes it.
+        emit "{\"ok\":false,\"error\":\"download_failed\",\"file\":\"$filename\",\"size\":$final_sz,\"expected\":$total,\"hint\":\"Download interrupted. Tap Download again to resume where it left off, and keep POSH open with the screen on until it finishes.\"}"
         return 1
     fi
     if ! is_gguf "$dest"; then
@@ -563,9 +686,16 @@ cmd_pull() {
         emit '{"ok":false,"error":"not_gguf","hint":"file did not start with GGUF magic bytes; check HF auth or model availability"}'
         return 1
     fi
-    local sz
-    sz=$(stat -c %s "$dest" 2>/dev/null || echo 0)
-    emit "{\"ok\":true,\"file\":\"$filename\",\"path\":\"$dest\",\"size\":$sz}"
+    # Size verification: a truncated file still starts with the GGUF magic bytes,
+    # so the magic check alone passes it — llama-server then dies at load with
+    # "tensor data is not within the file bounds". Compare against the expected
+    # size and refuse a short file so the user isn't handed a corrupt model.
+    if [ "$total" -gt 0 ] 2>/dev/null && [ "$final_sz" -lt "$total" ]; then
+        log "pull: incomplete ($final_sz < $total)"
+        emit "{\"ok\":false,\"error\":\"download_incomplete\",\"file\":\"$filename\",\"size\":$final_sz,\"expected\":$total,\"hint\":\"The file is smaller than expected — the download was cut short. Tap Download again to resume, keeping POSH open and the screen on.\"}"
+        return 1
+    fi
+    emit "{\"ok\":true,\"file\":\"$filename\",\"path\":\"$dest\",\"size\":$final_sz,\"expected\":$total}"
 }
 
 cmd_list_models() {
@@ -714,6 +844,28 @@ cmd_stop() {
     emit '{"ok":true}'
 }
 
+cmd_delete() {
+    local model="${1:-}"
+    if [ -z "$model" ]; then
+        emit '{"ok":false,"error":"missing_model"}'
+        return 1
+    fi
+    # basename guards against path traversal — only files inside MODELS_DIR go.
+    local base; base=$(basename "$model")
+    local path="$MODELS_DIR/$base"
+    if [ ! -f "$path" ]; then
+        emit "{\"ok\":false,\"error\":\"not_found\",\"model\":\"$base\"}"
+        return 1
+    fi
+    # If the model being deleted is the one currently serving, stop it first.
+    if [ -f "$META_FILE" ] && command -v jq >/dev/null 2>&1; then
+        local serving; serving=$(jq -r '.model // ""' "$META_FILE" 2>/dev/null)
+        [ "$serving" = "$base" ] && cmd_stop >/dev/null 2>&1 || true
+    fi
+    rm -f "$path"
+    emit "{\"ok\":true,\"deleted\":\"$base\"}"
+}
+
 cmd_status() {
     local running=false
     local pid=""
@@ -766,6 +918,7 @@ main() {
         list-quants)   cmd_list_quants "$@" ;;
         pull|pull-url) cmd_pull "$@" ;;
         list-models)   cmd_list_models "$@" ;;
+        delete)        cmd_delete "$@" ;;
         serve)         cmd_serve "$@" ;;
         stop)          cmd_stop "$@" ;;
         status)        cmd_status "$@" ;;

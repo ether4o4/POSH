@@ -11,9 +11,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -62,6 +67,7 @@ actual fun PlatformGgufModelsCard() {
     val op by manager.op.collectAsState()
     val busy = op is GgufServerManager.EngineOp.Running
     val busyLabel = (op as? GgufServerManager.EngineOp.Running)?.label.orEmpty()
+    val busyProgress = (op as? GgufServerManager.EngineOp.Running)?.progress
     val errorResult = (op as? GgufServerManager.EngineOp.Failed)?.result
 
     var status by remember { mutableStateOf<GgufServerManager.Status?>(null) }
@@ -69,6 +75,7 @@ actual fun PlatformGgufModelsCard() {
     var repoInput by remember { mutableStateOf("") }
     var quantInput by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
+    var modelToDelete by remember { mutableStateOf<String?>(null) }
 
     suspend fun refresh() {
         // Defensive: don't overwrite `status` or `models` with empty/failed
@@ -146,18 +153,32 @@ actual fun PlatformGgufModelsCard() {
         Spacer(Modifier.height(12.dp))
 
         if (busy) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(12.dp))
+            if (busyProgress != null) {
+                // Determinate download progress: real bar + percentage.
                 Text(
                     text = busyLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = { busyProgress },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = busyLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         } else if (st == null || !st.provisioned) {
             Text(
-                text = "First run compiles llama.cpp inside the sandbox. One-time, and slow on a phone (can take 10–30 min).",
+                text = "Downloads a prebuilt engine (usually under a minute). Compiles from source only if no prebuilt is reachable — that path can take 10–30 min.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -288,6 +309,16 @@ actual fun PlatformGgufModelsCard() {
                                 onClick = { manager.startServe(m.name) },
                                 modifier = Modifier.handCursor(),
                             ) { Text("Run") }
+                            IconButton(
+                                onClick = { modelToDelete = m.name },
+                                modifier = Modifier.handCursor(),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete ${m.name}",
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
                     }
                 }
@@ -330,6 +361,24 @@ actual fun PlatformGgufModelsCard() {
             result = err,
             manager = manager,
             onDismiss = { manager.acknowledgeOp() },
+        )
+    }
+
+    val pendingDelete = modelToDelete
+    if (pendingDelete != null) {
+        AlertDialog(
+            onDismissRequest = { modelToDelete = null },
+            title = { Text("Delete model?") },
+            text = { Text("Permanently delete \"$pendingDelete\" from the device? You can re-download it later.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    manager.startDelete(pendingDelete)
+                    modelToDelete = null
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { modelToDelete = null }) { Text("Cancel") }
+            },
         )
     }
 }

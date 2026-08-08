@@ -179,6 +179,14 @@ class AnsiParserTest {
     }
 
     @Test
+    fun `256 color blue is remapped to POSH red`() {
+        val input = "$esc[38;5;21mX$esc[0m"
+        val result = parseAnsiToAnnotatedString(input, defaultColor)
+        val span = result.spanStyles.firstOrNull { it.item.color == Color(255, 0, 0) }
+        assertNotNull(span)
+    }
+
+    @Test
     fun `256 color grayscale range maps to gray colors`() {
         // index 232 → gray = (232-232)*10 + 8 = 8
         val input = "$esc[38;5;232mX$esc[0m"

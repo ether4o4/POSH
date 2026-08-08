@@ -29,6 +29,7 @@ import com.inspiredandroid.kai.splinterlands.SplinterlandsBattleRunner
 import com.inspiredandroid.kai.splinterlands.SplinterlandsStore
 import com.inspiredandroid.kai.tools.CalendarPermissionController
 import com.inspiredandroid.kai.tools.LocalNetworkPermissionController
+import com.inspiredandroid.kai.tools.AccessibilityController
 import com.inspiredandroid.kai.tools.NotificationListenerController
 import com.inspiredandroid.kai.tools.NotificationPermissionController
 import com.inspiredandroid.kai.tools.SmsPermissionController
@@ -53,6 +54,7 @@ val appModule = module {
     single<SmsSender> { SmsSender() }
     single<NotificationListenerController> { NotificationListenerController() }
     single<NotificationReader> { NotificationReader() }
+    single<AccessibilityController> { AccessibilityController() }
     single<AppSettings> {
         AppSettings(createSecureSettings()).also {
             it.runMigrations(createLegacySettings())
@@ -104,7 +106,7 @@ val appModule = module {
         McpServerManager(get())
     }
     single<SkillManager> {
-        SkillManager(get<SandboxController>())
+        SkillManager(get<SandboxController>(), get<AppSettings>())
     }
     single<RemoteDataRepository> {
         RemoteDataRepository(

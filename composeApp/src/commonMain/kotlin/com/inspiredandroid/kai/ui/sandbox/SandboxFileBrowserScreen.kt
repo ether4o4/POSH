@@ -52,9 +52,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inspiredandroid.kai.SandboxFileEntry
 import com.inspiredandroid.kai.formatFileSize
 import com.inspiredandroid.kai.ui.handCursor
-import com.inspiredandroid.kai.ui.outlineTextFieldColors
 import com.inspiredandroid.kai.ui.kaiAdaptiveCardBorder
 import com.inspiredandroid.kai.ui.kaiAdaptiveCardColors
+import com.inspiredandroid.kai.ui.outlineTextFieldColors
 import kai.composeapp.generated.resources.Res
 import kai.composeapp.generated.resources.sandbox_files_action_delete
 import kai.composeapp.generated.resources.sandbox_files_action_more

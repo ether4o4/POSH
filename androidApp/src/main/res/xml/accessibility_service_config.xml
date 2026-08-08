@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Config for PoshAccessibilityService. POSH does not watch the screen: it requests no
+  event stream (accessibilityEventTypes is empty) and acts only when a device-control
+  tool calls it. It needs to read the window content (to see elements), perform
+  gestures (tap/swipe/type), and take screenshots.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
+    android:canPerformGestures="true"
+    android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
+    android:description="@string/accessibility_service_description"
+    android:summary="@string/accessibility_service_summary"
+    android:notificationTimeout="100" />

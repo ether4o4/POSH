@@ -51,7 +51,11 @@ class MainActivity : ComponentActivity() {
             var ttsReady by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { ttsReady = true }
             val textToSpeech = if (ttsReady) {
-                rememberTextToSpeechOrNull(TextToSpeechEngine.Google)
+                // Use the device's default TTS engine rather than forcing Google's.
+                // On de-Googled / FOSS phones a Google engine is often absent, which
+                // left POSH silent; SystemDefault speaks through whatever engine is
+                // installed (including offline neural engines the user side-loads).
+                rememberTextToSpeechOrNull(TextToSpeechEngine.SystemDefault)
             } else {
                 null
             }

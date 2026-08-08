@@ -49,6 +49,7 @@ internal fun ToolsContent(
     onAddPopularMcpServer: (PopularMcpServer) -> Unit,
     skills: ImmutableList<SkillManifest>,
     onUninstallSkill: (String) -> Unit,
+    onToggleSkill: (String, Boolean) -> Unit,
     showAddSkillDialog: Boolean,
     onShowAddSkillDialog: (Boolean) -> Unit,
     onInstallGitHubSkill: (String) -> Unit,
@@ -82,6 +83,7 @@ internal fun ToolsContent(
             SkillsSection(
                 skills = skills,
                 onUninstallSkill = onUninstallSkill,
+                onToggleSkill = onToggleSkill,
                 showAddDialog = showAddSkillDialog,
                 onShowAddDialog = onShowAddSkillDialog,
                 onInstallGitHub = onInstallGitHubSkill,

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -292,8 +293,8 @@ import sh.calvin.reorderable.ReorderableColumn
 import kotlin.math.roundToInt
 import kotlin.time.Instant
 
-internal val StatusColorConnected = Color(0xFF4CAF50)
-internal val StatusColorChecking = Color(0xFFFF9800)
+internal val StatusColorConnected = Color(0xFFE0191D)
+internal val StatusColorChecking = Color(0xFFFF3B30)
 internal val StatusColorError = Color(0xFFF44336)
 internal val StatusColorUnknown = Color(0xFF9E9E9E)
 
@@ -406,7 +407,7 @@ fun SettingsScreenContent(
         )
     }
 
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).navigationBarsPadding().statusBarsPadding().imePadding()) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).navigationBarsPadding().statusBarsPadding().displayCutoutPadding().imePadding()) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = CenterHorizontally) {
             if (navigationTabBar != null) {
                 Row(
@@ -473,6 +474,7 @@ fun SettingsScreenContent(
                                     onAddPopularMcpServer = actions.onAddPopularMcpServer,
                                     skills = filteredUiState.skills,
                                     onUninstallSkill = actions.onUninstallSkill,
+                                    onToggleSkill = actions.onToggleSkill,
                                     showAddSkillDialog = filteredUiState.showAddSkillDialog,
                                     onShowAddSkillDialog = actions.onShowAddSkillDialog,
                                     onInstallGitHubSkill = actions.onInstallGitHubSkill,

@@ -30,10 +30,13 @@ import com.inspiredandroid.kai.sandbox.SandboxState
 import com.inspiredandroid.kai.sms.SmsReader
 import com.inspiredandroid.kai.sms.SmsSender
 import com.inspiredandroid.kai.sms.declaresReadSms
+import com.inspiredandroid.kai.tools.AccessibilityController
 import com.inspiredandroid.kai.tools.CalendarPermissionController
 import com.inspiredandroid.kai.tools.CalendarRepository
 import com.inspiredandroid.kai.tools.CalendarResult
 import com.inspiredandroid.kai.tools.CommonTools
+import com.inspiredandroid.kai.tools.deviceControlToolInfos
+import com.inspiredandroid.kai.tools.deviceControlTools
 import com.inspiredandroid.kai.tools.EmailTools
 import com.inspiredandroid.kai.tools.FetchUrlTool
 import com.inspiredandroid.kai.tools.HeartbeatTools
@@ -222,6 +225,11 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
     // master toggles (isSmsEnabled / isSmsSendEnabled) plus the FOSS-only `isSmsSupported`
     // check in `getAvailableTools()`. Listing per-tool toggles in the Tools tab was dead
     // UI — `getAvailableTools()` never consulted them.
+
+    // Device-control tools are surfaced so users can see the capability set; the whole
+    // family is governed by the Device Control master toggle + Android accessibility
+    // permission, not per-tool switches.
+    addAll(deviceControlToolInfos)
 }
 
 actual fun getAvailableTools(): List<Tool> {
@@ -477,8 +485,22 @@ actual fun getAvailableTools(): List<Tool> {
             }
         }
 
+        // Device-control tools: gated on the FOSS-only accessibility service being
+        // declared in the merged manifest and the user's master toggle. Each tool
+        // additionally checks that the service is actually bound before acting, and
+        // returns an enable-me hint otherwise.
+        val accessibilityController: AccessibilityController by inject(AccessibilityController::class.java)
+        if (accessibilityController.isSupported() && appSettings.isDeviceControlEnabled()) {
+            addAll(deviceControlTools)
+        }
+
         val mcpServerManager: McpServerManager by inject(McpServerManager::class.java)
         addAll(mcpServerManager.getEnabledMcpTools())
+
+        // Compatible plugin APKs contribute their enabled tools the same
+        // way MCP servers do. No-op when no plugin APK is installed.
+        val pluginManager: com.inspiredandroid.kai.plugins.PluginManager by inject(com.inspiredandroid.kai.plugins.PluginManager::class.java)
+        addAll(pluginManager.getEnabledPluginTools())
     }
 }
 

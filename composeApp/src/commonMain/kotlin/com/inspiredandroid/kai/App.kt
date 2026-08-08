@@ -57,6 +57,7 @@ import com.inspiredandroid.kai.ui.hub.ConfigScreen
 import com.inspiredandroid.kai.ui.hub.MemoryScreen
 import com.inspiredandroid.kai.ui.hub.ModelsScreen
 import com.inspiredandroid.kai.ui.hub.PoshHub
+import com.inspiredandroid.kai.ui.hub.PluginsScreen
 import com.inspiredandroid.kai.ui.hub.ProjectsScreen
 import com.inspiredandroid.kai.ui.hub.SkillsScreen
 import com.inspiredandroid.kai.ui.hub.TerminalScreen
@@ -111,6 +112,10 @@ object Memory
 @Serializable
 @SerialName("config")
 object Config
+
+@Serializable
+@SerialName("plugins")
+object Plugins
 
 @Composable
 fun App(
@@ -263,6 +268,7 @@ private fun AppContent(
                             onOpenTerminal = { navController.navigate(Terminal) },
                             onOpenModels = { navController.navigate(Models) },
                             onOpenSkills = { navController.navigate(Skills) },
+                            onOpenPlugins = { navController.navigate(Plugins) },
                             onOpenProjects = { navController.navigate(Projects) },
                             onOpenMemory = { navController.navigate(Memory) },
                             onOpenConfig = { navController.navigate(Config) },
@@ -274,6 +280,9 @@ private fun AppContent(
                     }
                     composable<Models> {
                         ModelsScreen(onBack = { navController.navigateUp() })
+                    }
+                    composable<Plugins> {
+                        PluginsScreen(onBack = { navController.navigateUp() })
                     }
                     composable<Skills> {
                         SkillsScreen(

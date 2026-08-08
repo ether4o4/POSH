@@ -6,17 +6,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+private val PoshRed = Color(0xFFE0191D)
+
 /**
- * POSH logo: a shell prompt (">_") in white on a red rounded square. Static —
- * replaces the animated two-circle mark inherited from the upstream app.
+ * POSH logo: a white "P" whose bowl carries a red ">" chevron with a black
+ * shadow edge, on a red rounded square — same mark as the launcher icon.
  */
 @Composable
 fun PoshLogo(
@@ -26,28 +26,50 @@ fun PoshLogo(
     Canvas(modifier = modifier.size(size)) {
         val w = this.size.width
         val h = this.size.height
-        val corner = this.size.minDimension * 0.22f
+        val corner = this.size.minDimension * 0.18f
         drawRoundRect(
-            color = Color(0xFFD32F2F),
+            color = PoshRed,
             cornerRadius = CornerRadius(corner, corner),
         )
-        val stroke = this.size.minDimension * 0.10f
-        val chevron = Path().apply {
-            moveTo(w * 0.24f, h * 0.32f)
-            lineTo(w * 0.46f, h * 0.52f)
-            lineTo(w * 0.24f, h * 0.72f)
+        // P stem
+        drawRect(
+            color = Color.White,
+            topLeft = Offset(w * 0.30f, h * 0.22f),
+            size = androidx.compose.ui.geometry.Size(w * 0.11f, h * 0.56f),
+        )
+        // P bowl: flat top edge into a right-half arc back to the stem
+        val bowl = Path().apply {
+            moveTo(w * 0.41f, h * 0.22f)
+            lineTo(w * 0.55f, h * 0.22f)
+            arcTo(
+                rect = Rect(
+                    left = w * 0.55f - w * 0.18f,
+                    top = h * 0.22f,
+                    right = w * 0.55f + w * 0.18f,
+                    bottom = h * 0.58f,
+                ),
+                startAngleDegrees = -90f,
+                sweepAngleDegrees = 180f,
+                forceMoveTo = false,
+            )
+            lineTo(w * 0.41f, h * 0.58f)
+            close()
         }
-        drawPath(
-            path = chevron,
-            color = Color.White,
-            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round),
-        )
-        drawLine(
-            color = Color.White,
-            start = Offset(w * 0.55f, h * 0.72f),
-            end = Offset(w * 0.78f, h * 0.72f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round,
-        )
+        drawPath(bowl, Color.White)
+        // Chevron shadow (black), offset down-right behind the red chevron
+        val shadowOffset = w * 0.012f
+        drawPath(chevronPath(w, h, shadowOffset), Color.Black)
+        // Red chevron — the bowl's counter, pointing right
+        drawPath(chevronPath(w, h, 0f), PoshRed)
     }
+}
+
+private fun chevronPath(w: Float, h: Float, offset: Float): Path = Path().apply {
+    moveTo(w * 0.44f + offset, h * 0.30f + offset)
+    lineTo(w * 0.62f + offset, h * 0.40f + offset)
+    lineTo(w * 0.44f + offset, h * 0.50f + offset)
+    lineTo(w * 0.44f + offset, h * 0.445f + offset)
+    lineTo(w * 0.53f + offset, h * 0.40f + offset)
+    lineTo(w * 0.44f + offset, h * 0.355f + offset)
+    close()
 }

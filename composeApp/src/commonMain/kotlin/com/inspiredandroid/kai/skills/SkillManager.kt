@@ -2,6 +2,7 @@ package com.inspiredandroid.kai.skills
 
 import com.inspiredandroid.kai.SandboxController
 import com.inspiredandroid.kai.SandboxSessions
+import com.inspiredandroid.kai.data.AppSettings
 import com.inspiredandroid.kai.getBackgroundDispatcher
 import kai.composeapp.generated.resources.Res
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,7 @@ import kotlin.coroutines.CoroutineContext
  */
 class SkillManager(
     private val sandboxController: SandboxController,
+    private val appSettings: AppSettings,
     private val registry: SkillRegistry = SkillRegistry(),
     backgroundDispatcher: CoroutineContext = getBackgroundDispatcher(),
 ) {
@@ -106,6 +108,8 @@ class SkillManager(
                         body = parsed.body,
                         bundledFilePaths = files,
                         dependencies = parsed.dependencies,
+                        category = parsed.category,
+                        enabled = appSettings.isSkillEnabled(parsed.id),
                     )
                 }
             // Sandbox-installed skills win on id collision so power users can override a built-in.
@@ -135,7 +139,18 @@ class SkillManager(
             body = parsed.body,
             isBuiltIn = true,
             dependencies = parsed.dependencies,
+            category = parsed.category,
+            enabled = appSettings.isSkillEnabled(parsed.id),
         )
+    }
+
+    /**
+     * Turn a skill on or off. Persisted in settings; the cache re-emits immediately so
+     * the Skills UI and the `/`-invocation gate both see the change without a reload.
+     */
+    fun setSkillEnabled(id: String, enabled: Boolean) {
+        appSettings.setSkillEnabled(id, enabled)
+        _skills.value = _skills.value.map { if (it.id == id) it.copy(enabled = enabled) else it }
     }
 
     // --- Dependency auto-install ---
@@ -215,7 +230,15 @@ class SkillManager(
          * `composeResources/files/skills/<id>/SKILL.md`. Hardcoded so the asset path is
          * explicit at compile time and we don't need a resource directory listing.
          */
-        private val BUILT_IN_SKILL_IDS = listOf("create-skill")
+        private val BUILT_IN_SKILL_IDS = listOf(
+            "create-skill",
+            "web-research",
+            "device-brief",
+            // Pre-installed device-capability skills (Device Control + Vision).
+            "drive-apps",
+            "see-screen",
+            "fill-forms",
+        )
     }
 }
 

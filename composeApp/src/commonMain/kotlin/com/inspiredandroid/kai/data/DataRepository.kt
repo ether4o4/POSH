@@ -88,6 +88,7 @@ interface DataRepository {
 
     // Skills (stored in the Linux sandbox at ~/skills/<id>/; Android-only)
     fun getInstalledSkills(): List<SkillManifest>
+    fun setSkillEnabled(id: String, enabled: Boolean)
     suspend fun uninstallSkill(id: String)
     suspend fun browseSkillMarketplaces(): Result<List<RegistrySkillEntry>>
     suspend fun installBrowsedSkill(entry: RegistrySkillEntry): Result<SkillManifest>

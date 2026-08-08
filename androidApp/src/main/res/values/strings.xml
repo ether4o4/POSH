@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">POSH</string>
+    <string name="accessibility_service_label">POSH Device Control</string>
+    <string name="accessibility_service_summary">Lets the POSH assistant see the screen and tap, type, and swipe on your behalf.</string>
+    <string name="accessibility_service_description">Enable this so POSH can act on your phone for you: read what is on screen, tap buttons, type into fields, scroll, and take screenshots. POSH only acts when you ask the assistant to do something — it does not monitor your activity in the background.</string>
 </resources>

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -50,6 +52,7 @@ import com.inspiredandroid.kai.ui.handCursor
 import com.inspiredandroid.kai.ui.settings.AgentContent
 import com.inspiredandroid.kai.ui.settings.PendingDeletion
 import com.inspiredandroid.kai.ui.settings.PlatformGgufModelsCard
+import com.inspiredandroid.kai.ui.settings.PlatformPluginsCard
 import com.inspiredandroid.kai.ui.settings.SandboxViewModel
 import com.inspiredandroid.kai.ui.settings.SettingsCard
 import com.inspiredandroid.kai.ui.settings.SettingsViewModel
@@ -79,7 +82,10 @@ private fun HubPageScaffold(
             .fillMaxSize()
             .background(cs.background)
             .statusBarsPadding()
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            // In landscape the camera cutout sits along a side edge, so without this
+            // the page content runs underneath it.
+            .displayCutoutPadding(),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
@@ -107,13 +113,20 @@ private fun HubPageScaffold(
             }
         }
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp),
-            content = content,
-        )
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // Cap the reading width so forms and lists don't span a landscape screen.
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 900.dp)
+                    .fillMaxSize()
+                    .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
+                content = content,
+            )
+        }
     }
 }
 
@@ -261,6 +274,7 @@ fun SkillsScreen(
             SkillsSection(
                 skills = uiState.skills,
                 onUninstallSkill = viewModel.actions.onUninstallSkill,
+                onToggleSkill = viewModel.actions.onToggleSkill,
                 showAddDialog = uiState.showAddSkillDialog,
                 onShowAddDialog = viewModel.actions.onShowAddSkillDialog,
                 onInstallGitHub = viewModel.actions.onInstallGitHubSkill,
@@ -348,6 +362,15 @@ fun ModelsScreen(onBack: () -> Unit) {
         // Android-only GGUF runtime card: search a HuggingFace repo, download a
         // quant, list downloaded models, serve one locally. No-op elsewhere.
         PlatformGgufModelsCard()
+    }
+}
+
+@Composable
+fun PluginsScreen(onBack: () -> Unit) {
+    HubPageScaffold("PLUGINS", "extend the agent", onBack) {
+        // Android-only: discover compatible plugin APKs and toggle their
+        // tools into POSH's agent. No-op elsewhere.
+        PlatformPluginsCard()
     }
 }
 

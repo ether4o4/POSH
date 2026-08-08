@@ -31,8 +31,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import com.inspiredandroid.kai.data.AppSettings
+import com.inspiredandroid.kai.ui.sandbox.TerminalScript
+import com.inspiredandroid.kai.ui.sandbox.TerminalScriptLibrary
+import org.koin.compose.koinInject
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -103,7 +114,7 @@ private fun terminalColors(darkBackground: Boolean = false): TerminalColors {
             bg = TerminalDarkBg,
             inputBg = Color(0xFF252525),
             text = Color(0xFFD4D4D4),
-            prompt = Color(0xFF6CB6FF),
+            prompt = Color(0xFFFF6E6E),
             error = Color(0xFFF48771),
             dimText = Color(0xFF666666),
         )
@@ -205,6 +216,41 @@ fun TerminalContent(
             sessionViewModel.cancelRunning()
         } else {
             localActiveHandle?.cancel()
+        }
+    }
+
+    // --- Script library / `/` shortcuts / `/help` ---
+    val appSettings = koinInject<AppSettings>()
+    var favoriteIds by remember { mutableStateOf(appSettings.getFavoriteScriptIds()) }
+    var showLibrary by remember { mutableStateOf(false) }
+    var showHelp by remember { mutableStateOf(false) }
+    val toggleFavorite: (String) -> Unit = { id ->
+        appSettings.setScriptFavorite(id, id !in favoriteIds)
+        favoriteIds = appSettings.getFavoriteScriptIds()
+    }
+    // Typing "/" opens a shortcut list: favorites first (all scripts if none
+    // favorited yet), filtered by what's typed after the slash.
+    val slashQuery = if (inputText.startsWith("/")) inputText.drop(1).trim().lowercase() else null
+    val slashSuggestions: List<TerminalScript> = if (slashQuery != null) {
+        val favs = TerminalScriptLibrary.all.filter { it.id in favoriteIds }
+        val pool = if (favs.isNotEmpty()) favs else TerminalScriptLibrary.all
+        pool.filter {
+            slashQuery.isEmpty() ||
+                it.title.lowercase().contains(slashQuery) ||
+                it.id.contains(slashQuery) ||
+                it.command.lowercase().contains(slashQuery)
+        }.take(6)
+    } else {
+        emptyList()
+    }
+    val showHelpSuggestion = slashQuery != null && ("help".contains(slashQuery) || slashQuery.isEmpty())
+    // Intercept `/help` so it opens the guide instead of trying to run it as a command.
+    val onSubmit: () -> Unit = {
+        if (inputText.trim() == "/help") {
+            showHelp = true
+            setInputText("")
+        } else {
+            submitInput()
         }
     }
 
@@ -373,6 +419,43 @@ fun TerminalContent(
             }
         }
 
+        // `/` shortcut suggestions: favorite scripts (or all, if none favorited yet)
+        // plus a /help entry, shown as a small list just above the input.
+        if (slashQuery != null && (slashSuggestions.isNotEmpty() || showHelpSuggestion)) {
+            Column(modifier = Modifier.fillMaxWidth().background(colors.inputBg)) {
+                if (showHelpSuggestion) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showHelp = true; setInputText("") }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("/help", style = monoStyle(13.sp, colors.prompt))
+                        Spacer(Modifier.width(8.dp))
+                        Text("open the terminal guide", style = monoStyle(12.sp, colors.dimText))
+                    }
+                }
+                slashSuggestions.forEach { s ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { setInputText(s.command) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(s.title, style = monoStyle(13.sp, colors.text))
+                            Text(s.command, style = monoStyle(11.sp, colors.dimText), maxLines = 1)
+                        }
+                        if (s.id in favoriteIds) {
+                            Text("★", style = monoStyle(14.sp, colors.prompt))
+                        }
+                    }
+                }
+            }
+        }
+
         androidx.compose.material3.HorizontalDivider(
             color = colors.dimText.copy(alpha = 0.2f),
         )
@@ -413,14 +496,26 @@ fun TerminalContent(
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(
-                    onGo = { submitInput() },
+                    onGo = { onSubmit() },
                 ),
                 singleLine = true,
             )
             IconButton(
+                onClick = { showLibrary = true },
+                enabled = isInputEnabled,
+                modifier = Modifier.handCursor(),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Menu,
+                    contentDescription = "Script library",
+                    tint = if (isInputEnabled) colors.prompt else colors.dimText,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            IconButton(
                 onClick = {
                     when {
-                        canSubmit -> submitInput()
+                        canSubmit -> onSubmit()
                         canCancel -> cancelRunning()
                     }
                 },
@@ -440,6 +535,138 @@ fun TerminalContent(
                     modifier = Modifier.size(20.dp),
                 )
             }
+        }
+
+        if (showLibrary) {
+            ScriptLibrarySheet(
+                favoriteIds = favoriteIds,
+                onToggleFavorite = toggleFavorite,
+                onInsert = { cmd -> setInputText(cmd); showLibrary = false },
+                onShowHelp = { showLibrary = false; showHelp = true },
+                onDismiss = { showLibrary = false },
+            )
+        }
+        if (showHelp) {
+            TerminalHelpSheet(onDismiss = { showHelp = false })
+        }
+    }
+}
+
+@Composable
+private fun ScriptLibrarySheet(
+    favoriteIds: Set<String>,
+    onToggleFavorite: (String) -> Unit,
+    onInsert: (String) -> Unit,
+    onShowHelp: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(max = 520.dp),
+        ) {
+            item {
+                Text(
+                    text = "Script Library",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = "Tap a script to drop it in the terminal, then edit and run it. Star the ones you use — favorites show up when you type / in the terminal.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onShowHelp() }
+                        .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("/help", style = monoStyle(13.sp, MaterialTheme.colorScheme.primary))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Open the terminal guide",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                androidx.compose.material3.HorizontalDivider()
+            }
+            TerminalScriptLibrary.categoryOrder.forEach { category ->
+                val scripts = TerminalScriptLibrary.all.filter { it.category == category }
+                if (scripts.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = category,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                        )
+                    }
+                    items(scripts, key = { it.id }) { s ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f).clickable { onInsert(s.command) },
+                            ) {
+                                Text(
+                                    text = s.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                                Text(
+                                    text = s.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = s.command,
+                                    style = monoStyle(11.sp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)),
+                                    maxLines = 1,
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            val fav = s.id in favoriteIds
+                            Text(
+                                text = if (fav) "★" else "☆",
+                                style = monoStyle(20.sp, if (fav) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant),
+                                modifier = Modifier
+                                    .clickable { onToggleFavorite(s.id) }
+                                    .handCursor()
+                                    .padding(8.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun TerminalHelpSheet(onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .heightIn(max = 520.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Text(
+                text = TerminalScriptLibrary.helpText,
+                style = monoStyle(13.sp, MaterialTheme.colorScheme.onBackground),
+            )
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

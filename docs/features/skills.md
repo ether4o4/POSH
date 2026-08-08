@@ -1,6 +1,6 @@
 # Skills
 
-**Last verified:** 2026-07-31
+**Last verified:** 2026-08-06
 
 > **POSH addition:** skills can also be created in-app from the hub's **Skills** page — a name/description/instructions form writes the skill's definition file directly into the sandbox, where hot-reload activates it immediately. See [hub.md](hub.md).
 
@@ -8,7 +8,7 @@ Kai supports installable **skills**: reusable instruction bundles, modeled on An
 
 User-installed skills live **in the Linux sandbox**: each is a folder at `~/skills/<id>/` (its `SKILL.md` plus any files). There is no separate copy of those folders in app settings. Because of this, the Skills UI is **Android-only** (the only platform with a sandbox) and requires the sandbox to be installed first. The user browses a curated set of skill marketplaces (or installs from any GitHub repo) and triggers a skill in chat by starting a message with its slash command.
 
-In addition, Kai ships a small set of **built-in skills** (currently `create-skill`) loaded from app compose resources. Built-ins appear in the Skills list once the sandbox is installed, are labeled as built-in, and are not removable through the UI. If a user installs a sandbox skill with the same id, the sandbox copy takes precedence over the built-in.
+In addition, POSH ships a set of **built-in skills** (currently `create-skill`, `web-research`, `device-brief`, and the [device-control](device-control.md) capability skills `drive-apps`, `fill-forms`, and `see-screen`) loaded from app compose resources. Built-ins appear in the Skills list once the sandbox is installed, are labeled as built-in, and are not removable through the UI. If a user installs a sandbox skill with the same id, the sandbox copy takes precedence over the built-in.
 
 ## Concepts
 
@@ -16,7 +16,9 @@ In addition, Kai ships a small set of **built-in skills** (currently `create-ski
 
 Most skills are a folder `~/skills/<id>/` in the sandbox containing a `SKILL.md` (and any other files). The `SKILL.md` frontmatter provides a `name` (the slash-command id) and a `description`; the markdown after the frontmatter is the instruction body. `SkillManager` keeps an in-memory cache of installed sandbox skills plus any built-ins that are not overridden by a same-id sandbox folder; the cache is reloaded after every install/uninstall and once the sandbox becomes installed. On platforms without a sandbox the file ops are no-ops, so the cache is simply always empty — skills never appear off-Android.
 
-A skill has an id (lowercase letters, digits, and hyphens; ≤ 64 chars), a display name derived from the id, the instruction body, and the list of its other top-level file names (surfaced in the prompt). There is no enable/disable state: an installed skill is active. Uninstall deletes the sandbox folder for user-installed skills; built-ins have no remove action.
+A skill has an id (lowercase letters, digits, and hyphens; ≤ 64 chars), a display name derived from the id, an optional **category** (from a `category:` frontmatter key; defaults to General), the instruction body, and the list of its other top-level file names (surfaced in the prompt). Uninstall deletes the sandbox folder for user-installed skills; built-ins have no remove action.
+
+Each skill has an **enable/disable toggle** (persisted per skill in settings; on by default). Disabling a skill keeps it listed on the Skills page with its switch off, but removes it from `/`-invocation, so its instructions never inject into the prompt. This is how the pre-installed capability skills are switched on and off.
 
 ### Slash command
 
@@ -46,7 +48,7 @@ Both paths install the same way: a browsed entry carries its full repo coordinat
 
 ## Skill Management
 
-Each skill card shows the slash command (`/<id>`) and the description; expanding a **user-installed** skill reveals a remove button. Removal is deferred with a snackbar "Undo" option before the folder is deleted, matching the MCP and service flows. Built-in skills show a Built-in badge and omit the remove action.
+Skills are grouped under **category headers** (Device Control, Vision, Research, Daily, General). Each skill card shows the slash command (`/<id>`), the description, and an on/off **switch**; expanding a **user-installed** skill reveals a remove button. Removal is deferred with a snackbar "Undo" option before the folder is deleted, matching the MCP and service flows. Built-in skills show a Built-in badge and omit the remove action (but still have the enable/disable switch).
 
 ## Chat Autocomplete
 

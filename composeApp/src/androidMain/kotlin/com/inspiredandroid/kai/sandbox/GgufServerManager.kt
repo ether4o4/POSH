@@ -10,8 +10,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -47,7 +45,9 @@ class GgufServerManager(
      */
     sealed interface EngineOp {
         data object Idle : EngineOp
-        data class Running(val label: String) : EngineOp
+        /** [progress] is 0f..1f when a determinate value is known (model download),
+         *  or null for an indeterminate spinner. */
+        data class Running(val label: String, val progress: Float? = null) : EngineOp
         data class Done(val message: String) : EngineOp
         data class Failed(val result: GenericResult) : EngineOp
     }
@@ -93,6 +93,11 @@ class GgufServerManager(
     fun startStop() = launchOp("Stopping…") {
         val r = stop()
         if (r.ok) EngineOp.Done("Stopped") else EngineOp.Failed(r)
+    }
+
+    fun startDelete(modelFilename: String) = launchOp("Deleting $modelFilename…") {
+        val r = deleteModel(modelFilename)
+        if (r.ok) EngineOp.Done("Deleted $modelFilename") else EngineOp.Failed(r)
     }
 
     /** Clear a terminal [EngineOp.Done]/[EngineOp.Failed] back to idle once the UI
@@ -226,13 +231,30 @@ class GgufServerManager(
         ).trim()
     }
 
-    private suspend fun runStreaming(subcommand: String): String {
+    private suspend fun runStreaming(
+        subcommand: String,
+        onStderrLine: (String) -> Unit = {},
+    ): String {
         if (!ensureScriptInstalled()) return SCRIPT_INSTALL_FAILED_JSON
         val stdoutBuf = StringBuilder()
+        // stderr arrives in arbitrary chunks; buffer and dispatch whole lines so
+        // callers can parse line-oriented progress (PROGRESS <pct> <cur> <total>).
+        val stderrBuf = StringBuilder()
         val handle = sandbox.executeCommandStreaming(
             command = "$SCRIPT_PATH $subcommand",
             onStdout = { synchronized(stdoutBuf) { stdoutBuf.append(it) } },
-            onStderr = { /* progress; ignored — morsllm emits the result JSON on stdout */ },
+            onStderr = { chunk ->
+                synchronized(stderrBuf) {
+                    stderrBuf.append(chunk)
+                    var nl = stderrBuf.indexOf("\n")
+                    while (nl >= 0) {
+                        val line = stderrBuf.substring(0, nl)
+                        stderrBuf.delete(0, nl + 1)
+                        onStderrLine(line)
+                        nl = stderrBuf.indexOf("\n")
+                    }
+                }
+            },
             sessionId = SandboxSessions.SYSTEM,
         )
         handle.awaitExit()
@@ -252,7 +274,31 @@ class GgufServerManager(
         ListQuantsResult(ok = false, error = "decode_failed"),
     )
 
-    suspend fun provision(): GenericResult = decodeOr(runStreaming("provision"), GenericResult(ok = false, error = "provision_unparseable"))
+    suspend fun provision(): GenericResult {
+        val raw = runStreaming("provision") { line -> applyProgressLine(line, "Setting up engine") }
+        val r = decodeOr(raw, GenericResult(ok = false, error = "provision_unparseable"))
+        if (r.ok) return r
+        // The streaming call can come back unparseable if it was interrupted (app
+        // backgrounded, shell reset) even though the binary actually installed.
+        // Re-check the real on-disk status before reporting failure — this kills the
+        // spurious provision_unparseable a user otherwise hits on retry.
+        if (status().provisioned) return GenericResult(ok = true)
+        return r
+    }
+
+    /** Parse a `PROGRESS <pct> <cur> <total>` line into a live [EngineOp.Running]. */
+    private fun applyProgressLine(line: String, labelPrefix: String) {
+        val t = line.trim()
+        if (!t.startsWith("PROGRESS ")) return
+        val parts = t.split(" ")
+        val pct = parts.getOrNull(1)?.toIntOrNull() ?: return
+        _op.value = if (pct in 0..100) {
+            EngineOp.Running("$labelPrefix… $pct%", pct / 100f)
+        } else {
+            val mb = parts.getOrNull(2)?.toLongOrNull()?.let { it / (1024 * 1024) }
+            EngineOp.Running(if (mb != null) "$labelPrefix… $mb MB" else "$labelPrefix…", null)
+        }
+    }
 
     suspend fun pull(repoOrUrl: String, quant: String? = null): GenericResult {
         val args = if (quant.isNullOrBlank()) {
@@ -260,21 +306,46 @@ class GgufServerManager(
         } else {
             "${shellQuote(repoOrUrl)} ${shellQuote(quant)}"
         }
-        return decodeOr(
-            runStreaming("pull $args"),
-            GenericResult(ok = false, error = "pull_unparseable"),
-        )
+        // morsllm emits `PROGRESS <pct> <downloaded> <total>` to stderr each second
+        // during the download; applyProgressLine turns it into a live progress bar.
+        val raw = runStreaming("pull $args") { line -> applyProgressLine(line, "Downloading model") }
+        return decodeOr(raw, GenericResult(ok = false, error = "pull_unparseable"))
     }
 
     suspend fun serve(modelFilename: String, port: Int = 8080): GenericResult {
         val portArg = if (port == DEFAULT_PORT) "" else " --port $port"
-        return decodeOr(
+        val r = decodeOr(
             runStreaming("serve ${shellQuote(modelFilename)}$portArg"),
             GenericResult(ok = false, error = "serve_unparseable"),
         )
+        if (r.ok) return r
+        // llama-server is launched detached (nohup) and its pid file is written
+        // immediately, but the model can take minutes to load — plenty of time for
+        // the app to be backgrounded and the streaming shell connection severed,
+        // losing the final JSON line while the server itself comes up fine. Before
+        // reporting failure, re-check the real process state — same cure
+        // provision() got for its spurious provision_unparseable.
+        if (r.error == "serve_unparseable") {
+            repeat(4) { attempt ->
+                val st = runCatching { status() }.getOrNull()
+                if (st != null && st.running && (st.model.isEmpty() || st.model == modelFilename)) {
+                    return GenericResult(
+                        ok = true,
+                        model = st.model.ifEmpty { modelFilename },
+                        port = st.port.toIntOrNull() ?: port,
+                        baseUrl = st.baseUrl.ifEmpty { "http://127.0.0.1:$port/v1" },
+                    )
+                }
+                if (attempt < 3) kotlinx.coroutines.delay(4000)
+            }
+        }
+        return r
     }
 
     suspend fun stop(): GenericResult = decodeOr(runQuick("stop"), GenericResult(ok = false, error = "stop_unparseable"))
+
+    suspend fun deleteModel(modelFilename: String): GenericResult =
+        decodeOr(runQuick("delete ${shellQuote(modelFilename)}"), GenericResult(ok = false, error = "delete_unparseable"))
 
     /** Read the tail of a log file from inside the sandbox; capped so we don't
      * push huge text into a Compose dialog. Returns empty string if missing. */
@@ -290,14 +361,45 @@ class GgufServerManager(
     private fun shellQuote(s: String): String = "'" + s.replace("'", "'\\''") + "'"
 
     init {
-        // Pre-install the script once the sandbox reaches Ready so the user can
-        // also invoke `morsllm` directly from the in-app Terminal without going
-        // through this manager. Pure file write + chmod — building llama-server
-        // is gated behind explicit provision().
+        // Pre-install the script whenever the sandbox reaches Ready so the user
+        // can also invoke `morsllm` directly from the in-app Terminal without
+        // going through this manager. Pure file write + chmod — building
+        // llama-server is gated behind explicit provision(). Observed as a
+        // stream, not a one-shot: a sandbox reset+reinstall wipes the rootfs
+        // (and the installed script) without restarting the app process, so
+        // the installed flag must drop when readiness drops or every engine op
+        // after a reset fails until the app is killed.
         scope.launch {
-            sandbox.status.filter { it.ready }.first()
-            ensureScriptInstalled()
+            sandbox.status.collect { status ->
+                if (status.ready) {
+                    ensureScriptInstalled()
+                    maybeAutoRecoverEngine()
+                } else {
+                    scriptInstalled = false
+                }
+            }
         }
+    }
+
+    @Volatile
+    private var autoRecoverAttempted = false
+
+    /**
+     * A sandbox reset/reinstall wipes the engine binary (it lives on the rootfs at
+     * /opt) while downloaded models survive under /root. When we come back Ready with
+     * models present but no engine, quietly rebuild it — a ~14 MB download — so the
+     * user doesn't have to notice "not built yet" and tap Set up engine again. One
+     * attempt per app process; if it fails, the manual button is still there.
+     */
+    private suspend fun maybeAutoRecoverEngine() {
+        if (autoRecoverAttempted) return
+        if (_op.value !is EngineOp.Idle) return
+        val st = runCatching { status() }.getOrNull() ?: return
+        if (st.provisioned) return
+        val hasModels = runCatching { listModels().models.isNotEmpty() }.getOrDefault(false)
+        if (!hasModels) return
+        autoRecoverAttempted = true
+        startProvision()
     }
 
     companion object {

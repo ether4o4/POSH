@@ -180,6 +180,7 @@ class SettingsViewModel(
         onShowAddMcpServerDialog = ::onShowAddMcpServerDialog,
         onAddPopularMcpServer = ::onAddPopularMcpServer,
         onUninstallSkill = ::onUninstallSkill,
+        onToggleSkill = ::onToggleSkill,
         onShowAddSkillDialog = ::onShowAddSkillDialog,
         onInstallGitHubSkill = ::onInstallGitHubSkill,
         onInstallBrowsedSkill = ::onInstallBrowsedSkill,
@@ -855,6 +856,11 @@ class SettingsViewModel(
     /** Re-read the installed-skills list after an external write (e.g. the hub's
      *  create-skill page saving a SKILL.md straight into the sandbox). */
     fun refreshInstalledSkills() = refreshSkills()
+
+    private fun onToggleSkill(id: String, enabled: Boolean) {
+        dataRepository.setSkillEnabled(id, enabled)
+        refreshSkills()
+    }
 
     private fun onUninstallSkill(id: String) {
         commitPendingDeletion()

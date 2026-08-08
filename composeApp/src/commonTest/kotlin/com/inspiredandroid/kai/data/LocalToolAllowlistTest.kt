@@ -25,6 +25,12 @@ class LocalToolAllowlistTest {
             "memory_forget",
             "memory_reinforce",
             "execute_shell_command",
+            "device_read_screen",
+            "device_tap",
+            "device_swipe",
+            "device_type",
+            "device_press_key",
+            "device_open_app",
         )
         assertEquals(expected, LOCAL_TOOL_ALLOWLIST)
     }

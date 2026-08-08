@@ -1,6 +1,6 @@
 # Tools
 
-**Last verified:** 2026-07-18
+**Last verified:** 2026-08-06
 
 Kai's tools feature allows the AI to execute external functions during conversations — web search, notifications, calendar events, shell commands, memory operations, and more. Tools are defined with a schema, executed with safety guards, and managed through per-tool toggles in settings.
 
@@ -76,6 +76,7 @@ After a reply or a newly composed email is sent, a copy of the outgoing message 
 | `execute_shell_command` | Execute a shell command on the device | Disabled |
 | `ssh_configure_host` | Register a named SSH host alias for the Linux sandbox so subsequent shell calls can use `ssh <alias>`. Rides along whenever the sandbox is installed and enabled. SSH multiplexing (ControlMaster) is intentionally not enabled — Android blocks the `link()` syscall OpenSSH uses for control sockets, so every `ssh` call does a full TCP and authentication handshake. | Disabled |
 | `open_file` | Open a file from the sandbox in an Android app (browser, image viewer, etc.) | Enabled |
+| `device_read_screen`, `device_tap`, `device_long_press`, `device_swipe`, `device_type`, `device_press_key`, `device_screenshot`, `device_open_app` | Accessibility-based phone control — see the screen, tap/type/swipe, press system keys, screenshot, and launch apps. Triple-gated (FOSS build + Device Control master toggle + Android accessibility permission). See [device-control.md](device-control.md). | Off (opt-in) |
 
 #### Linux Sandbox (Android)
 

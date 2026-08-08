@@ -215,11 +215,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inspiredandroid.kai.ui.KaiOutlinedTextField
-import com.inspiredandroid.kai.ui.outlineTextFieldColors
 import com.inspiredandroid.kai.ui.components.KaiChip
 import com.inspiredandroid.kai.ui.handCursor
 import com.inspiredandroid.kai.ui.kaiAdaptiveCardBorder
 import com.inspiredandroid.kai.ui.kaiAdaptiveCardColors
+import com.inspiredandroid.kai.ui.outlineTextFieldColors
 import kai.composeapp.generated.resources.Res
 import kai.composeapp.generated.resources.bot_message_copy_content_description
 import kai.composeapp.generated.resources.kai_ui_code_copy
@@ -1057,10 +1057,10 @@ private fun RenderCountdown(
 @Composable
 private fun RenderAlert(node: AlertNode) {
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val successContainer = if (isDark) Color(0xFF1B3A1B) else Color(0xFFE8F5E9)
-    val onSuccessContainer = if (isDark) Color(0xFFC8E6C9) else Color(0xFF1B5E20)
-    val warningContainer = if (isDark) Color(0xFF3D2600) else Color(0xFFFFF3E0)
-    val onWarningContainer = if (isDark) Color(0xFFFF9100) else Color(0xFFE65100)
+    val successContainer = if (isDark) Color(0xFF1A0505) else Color(0xFFFFFFFF)
+    val onSuccessContainer = if (isDark) Color(0xFFD0D0D0) else Color(0xFF7F0000)
+    val warningContainer = if (isDark) Color(0xFF1A0505) else Color(0xFFFFFFFF)
+    val onWarningContainer = if (isDark) Color(0xFFFF3B30) else Color(0xFFC62828)
     val containerColor = when (node.severity) {
         AlertSeverity.SUCCESS -> successContainer
         AlertSeverity.WARNING -> warningContainer

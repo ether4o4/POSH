@@ -88,7 +88,14 @@ import kotlin.time.Instant
 
 @Composable
 internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        // Device Control (accessibility-based phone control) — Android/FOSS only;
+        // renders nothing on other platforms or non-FOSS builds.
+        PlatformDeviceControlCard()
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val useStaggered = maxWidth >= 600.dp
         if (useStaggered) {
             Row(
@@ -290,6 +297,7 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                 }
             }
         }
+    }
     }
 }
 

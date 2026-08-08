@@ -309,7 +309,8 @@ class ChatViewModel(
         val firstSpace = trimmed.indexOfFirst { it.isWhitespace() }
         val rawId = if (firstSpace < 0) trimmed.substring(1) else trimmed.substring(1, firstSpace)
         if (rawId.isEmpty()) return text to null
-        val skill = dataRepository.getInstalledSkills().firstOrNull { it.id.equals(rawId, ignoreCase = true) }
+        val skill = dataRepository.getInstalledSkills()
+            .firstOrNull { it.enabled && it.id.equals(rawId, ignoreCase = true) }
             ?: return text to null
         return text to skill.id
     }
