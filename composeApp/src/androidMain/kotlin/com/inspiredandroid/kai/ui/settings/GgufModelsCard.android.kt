@@ -203,7 +203,7 @@ actual fun PlatformGgufModelsCard() {
             // with the current llama.cpp build. Removes the "what do I type"
             // friction for new users — one tap and the right repo id is filled in.
             Text(
-                text = "Quick install — small models known to work with this engine. The 1B runs on any phone; the 3Bs want ~3 GB free RAM:",
+                text = "Quick install — small models known to work with this engine. The 1B runs on any phone; the 2-3B models want 2-3 GB free RAM:",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -225,6 +225,16 @@ actual fun PlatformGgufModelsCard() {
                     modifier = Modifier.weight(1f).handCursor(),
                 ) { Text("Uncensored 3B\n(Qwen • ~2GB)", style = MaterialTheme.typography.bodySmall) }
             }
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(
+                onClick = {
+                    repoInput = "mradermacher/Qwen3.5-2B_Abliterated-GGUF"
+                    // IQ4_XS: the 1.17 GB imatrix-free quant of this repo — smaller
+                    // than Q4_K_M with near-identical quality on a 2B.
+                    quantInput = "IQ4_XS"
+                },
+                modifier = Modifier.fillMaxWidth().handCursor(),
+            ) { Text("Qwen3.5 2B (uncensored • ~1.2GB)", style = MaterialTheme.typography.bodySmall) }
             Spacer(Modifier.height(10.dp))
 
             OutlinedTextField(
