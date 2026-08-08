@@ -314,10 +314,32 @@ class GgufServerManager(
 
     suspend fun serve(modelFilename: String, port: Int = 8080): GenericResult {
         val portArg = if (port == DEFAULT_PORT) "" else " --port $port"
-        return decodeOr(
+        val r = decodeOr(
             runStreaming("serve ${shellQuote(modelFilename)}$portArg"),
             GenericResult(ok = false, error = "serve_unparseable"),
         )
+        if (r.ok) return r
+        // llama-server is launched detached (nohup) and its pid file is written
+        // immediately, but the model can take minutes to load — plenty of time for
+        // the app to be backgrounded and the streaming shell connection severed,
+        // losing the final JSON line while the server itself comes up fine. Before
+        // reporting failure, re-check the real process state — same cure
+        // provision() got for its spurious provision_unparseable.
+        if (r.error == "serve_unparseable") {
+            repeat(4) { attempt ->
+                val st = runCatching { status() }.getOrNull()
+                if (st != null && st.running && (st.model.isEmpty() || st.model == modelFilename)) {
+                    return GenericResult(
+                        ok = true,
+                        model = st.model.ifEmpty { modelFilename },
+                        port = st.port.toIntOrNull() ?: port,
+                        baseUrl = st.baseUrl.ifEmpty { "http://127.0.0.1:$port/v1" },
+                    )
+                }
+                if (attempt < 3) kotlinx.coroutines.delay(4000)
+            }
+        }
+        return r
     }
 
     suspend fun stop(): GenericResult = decodeOr(runQuick("stop"), GenericResult(ok = false, error = "stop_unparseable"))
