@@ -229,12 +229,12 @@ actual fun PlatformGgufModelsCard() {
             OutlinedButton(
                 onClick = {
                     repoInput = "mradermacher/Qwen3.5-2B_Abliterated-GGUF"
-                    // IQ4_XS: the 1.17 GB imatrix-free quant of this repo — smaller
-                    // than Q4_K_M with near-identical quality on a 2B.
-                    quantInput = "IQ4_XS"
+                    // Q6_K: 1.56 GB, near-lossless quant of this 2B — the fidelity
+                    // sweet spot when a phone has the RAM to spare over IQ4_XS.
+                    quantInput = "Q6_K"
                 },
                 modifier = Modifier.fillMaxWidth().handCursor(),
-            ) { Text("Qwen3.5 2B (uncensored • ~1.2GB)", style = MaterialTheme.typography.bodySmall) }
+            ) { Text("Qwen3.5 2B (uncensored • ~1.6GB)", style = MaterialTheme.typography.bodySmall) }
             Spacer(Modifier.height(10.dp))
 
             OutlinedTextField(

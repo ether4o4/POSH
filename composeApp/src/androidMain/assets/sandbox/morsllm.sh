@@ -795,21 +795,32 @@ cmd_serve() {
     # wait — exactly the "it just loads and never actually works" symptom. Fail
     # fast (<1s) with a plain-language message instead. Skipped if we can't read
     # either number, so it can never wrongly block a launch.
-    local model_bytes mem_avail_kb mem_avail_bytes needed avail_mb model_mb
+    local model_bytes mem_avail_kb mem_avail_bytes mem_total_kb mem_total_bytes needed avail_mb model_mb
     model_bytes=$(stat -c %s "$model_path" 2>/dev/null || echo 0)
     mem_avail_kb=$(awk '/^MemAvailable:/{print $2; exit}' /proc/meminfo 2>/dev/null || echo 0)
     mem_avail_bytes=$((mem_avail_kb * 1024))
-    if [ "$model_bytes" -gt 0 ] && [ "$mem_avail_bytes" -gt 0 ]; then
+    mem_total_kb=$(awk '/^MemTotal:/{print $2; exit}' /proc/meminfo 2>/dev/null || echo 0)
+    mem_total_bytes=$((mem_total_kb * 1024))
+    if [ "$model_bytes" -gt 0 ] && [ "$mem_total_bytes" -gt 0 ]; then
         # model + ~1/6 for the KV cache and runtime at ctx 4096, + a flat 400 MB
-        # for the app itself. Without the flat term a borderline model passes the
-        # check, loads, and then Android's low-memory killer takes down the whole
-        # app process group mid-chat — experienced as the app "force closing".
+        # for the app itself.
         needed=$((model_bytes + model_bytes / 6 + 419430400))
-        if [ "$mem_avail_bytes" -lt "$needed" ]; then
-            avail_mb=$((mem_avail_bytes / 1048576))
+        # Hard-refuse ONLY what physically can't fit: more than ~85% of total
+        # RAM can never be resident no matter what Android evicts. Anything
+        # smaller is allowed even when it exceeds MemAvailable — GGUF weights
+        # are mmap'd and page in lazily while Android evicts cached apps to
+        # make room, which is exactly how the same phone runs bigger models in
+        # a bare terminal. (Samsung in particular reports MemAvailable far
+        # below what's really obtainable, and gating on it wrongly refused
+        # models a 12 GB phone handles fine.)
+        if [ "$needed" -gt $((mem_total_bytes * 85 / 100)) ]; then
+            avail_mb=$((mem_total_bytes / 1048576))
             model_mb=$((needed / 1048576))
-            serve_emit "{\"ok\":false,\"error\":\"insufficient_memory\",\"detail\":\"This model needs about ${model_mb} MB of free RAM to run safely (model plus working headroom), but only ${avail_mb} MB is free right now. Close some background apps and try again, or pick a smaller model.\",\"hint\":\"Low free RAM. Try the 'Quick 1B' install, or a smaller quant (Q4_K_M of a 1-3B model).\"}"
+            serve_emit "{\"ok\":false,\"error\":\"insufficient_memory\",\"detail\":\"This model needs about ${model_mb} MB resident to run, but the device only has ${avail_mb} MB of RAM in total — it cannot fit no matter what is closed. Pick a smaller model or a smaller quant.\",\"hint\":\"Try the 'Quick 1B' install, or a Q4/IQ4 quant of a 2-3B model.\"}"
             return 1
+        fi
+        if [ "$mem_avail_bytes" -gt 0 ] && [ "$needed" -gt "$mem_avail_bytes" ]; then
+            log "serve: memory is tight (need ~$((needed / 1048576)) MB, ~$((mem_avail_bytes / 1048576)) MB immediately free) — proceeding; Android will reclaim cached apps as the model pages in"
         fi
     fi
 

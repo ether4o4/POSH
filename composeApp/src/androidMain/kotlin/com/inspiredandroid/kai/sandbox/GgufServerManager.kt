@@ -265,7 +265,25 @@ class GgufServerManager(
             ?: ""
     }
 
-    suspend fun status(): Status = decodeOr(runQuick("status"), Status())
+    suspend fun status(): Status {
+        val st = decodeOr(runQuick("status"), Status())
+        // Reconcile the keep-alive foreground service with reality: the in-sandbox
+        // idle watchdog can stop the server without the app knowing, so any status
+        // read that reports "not running" also clears the service (and its
+        // notification). A running server (re)asserts it — cheap and idempotent.
+        setServingForeground(st.running)
+        return st
+    }
+
+    /** Hold or release the foreground service that keeps a serving model from
+     *  being OOM-killed. Idempotent; no-op if the state is unchanged. */
+    @Volatile
+    private var servingForeground = false
+    private fun setServingForeground(on: Boolean) {
+        if (on == servingForeground) return
+        servingForeground = on
+        if (on) GgufServerService.start(context) else GgufServerService.stop(context)
+    }
 
     suspend fun listModels(): ListModelsResult = decodeOr(runQuick("list-models"), ListModelsResult(ok = false, error = "decode_failed"))
 
@@ -333,7 +351,10 @@ class GgufServerManager(
             runStreaming("serve ${shellQuote(modelFilename)}$portArg"),
             GenericResult(ok = false, error = "serve_unparseable"),
         )
-        if (r.ok) return r
+        if (r.ok) {
+            setServingForeground(true)
+            return r
+        }
         if (r.error == "serve_unparseable") {
             // The streaming shell connection was severed (app backgrounded during
             // a multi-minute model load, shell reset) — the script and the
@@ -341,7 +362,10 @@ class GgufServerManager(
             // real outcome: the script mirrors its final JSON to a result file,
             // and process liveness + /health are directly observable.
             val recovered = recoverServeOutcome(modelFilename, port, useResultFile = true, deadlineMs = 240_000L)
-            if (recovered != null) return recovered
+            if (recovered != null) {
+                if (recovered.ok) setServingForeground(true)
+                return recovered
+            }
             return r.copy(
                 detail = r.detail ?: "The serve command's output was lost (the sandbox shell connection was interrupted) and the server did not come up afterwards. The log below usually shows why.",
                 logPath = r.logPath ?: SERVER_LOG_PATH,
@@ -355,7 +379,10 @@ class GgufServerManager(
             // kept loading, and the natural retry tap killed it moments before
             // it would have finished.
             val recovered = recoverServeOutcome(modelFilename, port, useResultFile = false, deadlineMs = 180_000L)
-            if (recovered != null) return recovered
+            if (recovered != null) {
+                if (recovered.ok) setServingForeground(true)
+                return recovered
+            }
             runCatching { stop() }
             return r
         }
@@ -425,7 +452,11 @@ class GgufServerManager(
         return null
     }
 
-    suspend fun stop(): GenericResult = decodeOr(runQuick("stop"), GenericResult(ok = false, error = "stop_unparseable"))
+    suspend fun stop(): GenericResult {
+        val r = decodeOr(runQuick("stop"), GenericResult(ok = false, error = "stop_unparseable"))
+        setServingForeground(false)
+        return r
+    }
 
     suspend fun deleteModel(modelFilename: String): GenericResult =
         decodeOr(runQuick("delete ${shellQuote(modelFilename)}"), GenericResult(ok = false, error = "delete_unparseable"))

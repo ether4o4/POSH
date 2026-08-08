@@ -78,6 +78,10 @@
             android:name="com.inspiredandroid.kai.inference.ModelDownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <service
+            android:name="com.inspiredandroid.kai.sandbox.GgufServerService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
     </application>
