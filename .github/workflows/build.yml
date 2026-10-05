@@ -41,7 +41,7 @@ jobs:
   build-apk:
     name: Build foss debug APK
     runs-on: ubuntu-latest
-    if: github.actor != 'github-actions[bot]'
+    if: ${{ (github.actor != 'github-actions[bot]') && !startsWith(github.ref_name, 'polish/') && !startsWith(github.head_ref, 'polish/') }}
     env:
       RELEASES_REPO: ${{ vars.RELEASES_REPO || github.repository }}
 
