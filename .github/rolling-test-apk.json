@@ -1,0 +1,9 @@
+{
+  "seed_run": 37363989964,
+  "seed_sha": "e5a3d9a8353775d32a1c33ce60fb1abee43645c2",
+  "seed_apk_sha": "37a67e869368a674f3bd3f627a75de5c815e352767497031ba0ec62b5902314f",
+  "main_path": ".github/workflows/build.yml",
+  "main_artifact": "posh-foss-debug-.*",
+  "selector": "\\.apk$",
+  "asset_prefix": "POSH-test"
+}
