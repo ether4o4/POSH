@@ -250,6 +250,22 @@ class FakeDataRepository : DataRepository {
         savedConversations.update { it.filter { c -> c.id != id } }
     }
 
+    private var branchCounter = 0
+
+    override suspend fun branchConversation(fromMessageId: String): String? {
+        val currentId = currentConversationId.value ?: return null
+        val source = savedConversations.value.find { it.id == currentId } ?: return null
+        val index = source.messages.indexOfFirst { it.id == fromMessageId }
+        if (index < 0) return null
+        var id: String
+        do {
+            branchCounter++
+            id = "test_branch_$branchCounter"
+        } while (savedConversations.value.any { it.id == id })
+        savedConversations.update { it + source.copy(id = id, messages = source.messages.take(index + 1)) }
+        return id
+    }
+
     override fun regenerate() {
         regenerateCalls++
         chatHistory.update { history ->
